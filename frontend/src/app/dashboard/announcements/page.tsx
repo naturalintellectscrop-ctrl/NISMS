@@ -1,0 +1,97 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { Badge, Field, Modal, dateStr, useSubmit } from '@/components/ui';
+
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  audience: string;
+  publishedAt: string | null;
+  createdAt: string;
+}
+
+export default function AnnouncementsPage() {
+  const { hasRole } = useAuth();
+  const [rows, setRows] = useState<Announcement[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const canManage = hasRole('SCHOOL_ADMIN', 'HEAD_TEACHER', 'SECRETARY');
+
+  const load = useCallback(() => {
+    api<Announcement[]>('/api/announcements', { query: canManage ? { includeDrafts: 'true' } : {} })
+      .then(setRows)
+      .catch(() => {});
+  }, [canManage]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <>
+      <div className="topbar">
+        <h1>Announcements</h1>
+        {canManage && <button className="btn" onClick={() => setShowCreate(true)}>+ New announcement</button>}
+      </div>
+      <div className="content">
+        {rows.length === 0 && <div className="empty">No announcements.</div>}
+        {rows.map((a) => (
+          <div className="card" key={a.id}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <strong>{a.title}</strong>
+              <Badge tone="blue">{a.audience}</Badge>
+              {a.publishedAt ? (
+                <Badge tone="green">Published {dateStr(a.publishedAt)}</Badge>
+              ) : (
+                <Badge tone="amber">DRAFT</Badge>
+              )}
+              <div style={{ flex: 1 }} />
+              {canManage && !a.publishedAt && (
+                <button className="btn small" onClick={() => api(`/api/announcements/${a.id}/publish`, { method: 'POST' }).then(load)}>
+                  Publish
+                </button>
+              )}
+            </div>
+            <p style={{ whiteSpace: 'pre-wrap' }}>{a.body}</p>
+          </div>
+        ))}
+      </div>
+
+      <CreateModal open={showCreate} onClose={() => setShowCreate(false)} onSaved={load} />
+    </>
+  );
+}
+
+function CreateModal({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({ title: '', body: '', audience: 'ALL', publish: true });
+  const { busy, error, submit } = useSubmit(async () => {
+    await api('/api/announcements', { method: 'POST', body: form });
+    onSaved(); onClose();
+  });
+  return (
+    <Modal title="New announcement" open={open} onClose={onClose}>
+      <form onSubmit={submit}>
+        <Field label="Title"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></Field>
+        <Field label="Message"><textarea rows={5} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} required /></Field>
+        <div className="form-row">
+          <Field label="Audience">
+            <select value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value })}>
+              {['ALL', 'TEACHERS', 'STUDENTS', 'PARENTS', 'STAFF'].map((a) => <option key={a}>{a}</option>)}
+            </select>
+          </Field>
+          <Field label="Publish now?">
+            <select value={form.publish ? 'yes' : 'no'} onChange={(e) => setForm({ ...form, publish: e.target.value === 'yes' })}>
+              <option value="yes">Yes</option><option value="no">Save as draft</option>
+            </select>
+          </Field>
+        </div>
+        {error && <p className="error-text">{error}</p>}
+        <div className="modal-actions">
+          <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
+          <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
