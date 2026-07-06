@@ -15,15 +15,18 @@ export function getToken(): string | null {
   return localStorage.getItem('nisms_token');
 }
 
-/** Platform admins acting on a specific school set this via the school switcher. */
-export function getActiveSchoolId(): string | null {
+/**
+ * School Context: platform staff are never logged into a school — they operate
+ * within an explicitly selected school workspace. This holds that selection.
+ */
+export function getSchoolContext(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('nisms_active_school');
+  return localStorage.getItem('nisms_school_context');
 }
 
-export function setActiveSchoolId(schoolId: string | null): void {
-  if (schoolId) localStorage.setItem('nisms_active_school', schoolId);
-  else localStorage.removeItem('nisms_active_school');
+export function setSchoolContext(schoolId: string | null): void {
+  if (schoolId) localStorage.setItem('nisms_school_context', schoolId);
+  else localStorage.removeItem('nisms_school_context');
 }
 
 export async function api<T = unknown>(
@@ -38,8 +41,8 @@ export async function api<T = unknown>(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const activeSchool = getActiveSchoolId();
-  if (activeSchool) headers['x-school-id'] = activeSchool;
+  const schoolContext = getSchoolContext();
+  if (schoolContext) headers['x-school-context'] = schoolContext;
 
   const res = await fetch(url.toString(), {
     method: options.method ?? 'GET',
@@ -52,7 +55,9 @@ export async function api<T = unknown>(
   if (!res.ok) {
     if (res.status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('nisms_token');
-      if (!window.location.pathname.startsWith('/login')) window.location.href = '/login';
+      // Each application has its own entry point.
+      const loginPath = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
+      if (!window.location.pathname.endsWith('/login')) window.location.href = loginPath;
     }
     throw new ApiError(res.status, (data as { error?: string }).error ?? 'Request failed', (data as { details?: unknown }).details);
   }

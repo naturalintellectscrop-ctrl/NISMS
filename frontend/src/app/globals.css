@@ -303,13 +303,16 @@ table.table {
 
 /* ---------- forms ---------- */
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   margin-bottom: 12px;
 }
 
 .field label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field .field-label {
   font-size: 12.5px;
   font-weight: 600;
   color: #334155;
@@ -419,6 +422,26 @@ table.table {
 
 .toggle.on::after {
   left: 20px;
+}
+
+/* ---------- school-context banner (platform staff viewing a school) ---------- */
+.context-banner {
+  background: #0f172a;
+  color: #fff;
+  padding: 8px 26px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.context-banner .btn {
+  margin-left: auto;
+}
+
+.shell-footer {
+  padding: 10px 26px 20px;
+  margin-top: auto;
 }
 
 /* ---------- login ---------- */

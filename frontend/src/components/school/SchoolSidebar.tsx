@@ -4,15 +4,20 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, Role } from '@/lib/auth';
 
+/**
+ * Application B navigation. School staff only see their school's modules —
+ * no platform terminology, ever. Feature flags hide locked modules; the
+ * backend independently enforces access.
+ */
 interface NavItem {
   href: string;
   label: string;
   icon: string;
-  feature?: string; // feature flag key controlling visibility
-  roles?: Role[]; // roles allowed to see it (besides SUPER_ADMIN)
+  feature?: string;
+  roles?: Role[];
 }
 
-const SCHOOL_NAV: NavItem[] = [
+const NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: '▦' },
   { href: '/dashboard/students', label: 'Students', icon: '🎓', feature: 'STUDENTS' },
   { href: '/dashboard/teachers', label: 'Teachers', icon: '👤', feature: 'TEACHERS' },
@@ -34,55 +39,42 @@ const SCHOOL_NAV: NavItem[] = [
     feature: 'WEBSITE',
     roles: ['SCHOOL_ADMIN', 'SECRETARY', 'PROPRIETOR', 'HEAD_TEACHER'],
   },
-  { href: '/dashboard/support', label: 'Support', icon: '🎧' },
+  { href: '/dashboard/support', label: 'Help & Support', icon: '🎧' },
   { href: '/dashboard/settings', label: 'Settings', icon: '⚙', roles: ['SCHOOL_ADMIN', 'PROPRIETOR'] },
 ];
 
-const ADMIN_NAV: NavItem[] = [
-  { href: '/admin', label: 'Overview', icon: '▦' },
-  { href: '/admin/schools', label: 'Schools', icon: '🏫' },
-  { href: '/admin/tickets', label: 'Support Tickets', icon: '🎧' },
-  { href: '/admin/activity', label: 'Activity Logs', icon: '🗒' },
-];
-
-export function Sidebar() {
+export function SchoolSidebar() {
   const pathname = usePathname();
-  const { user, school, hasFeature, logout } = useAuth();
+  const { user, school, schoolContext, hasFeature, hasRole, logout } = useAuth();
   if (!user) return null;
 
-  const isPlatform = user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT_ADMIN';
+  const branding = schoolContext ?? school;
 
   const visible = (item: NavItem): boolean => {
     if (item.feature && !hasFeature(item.feature)) return false;
-    if (item.roles && user.role !== 'SUPER_ADMIN' && !item.roles.includes(user.role)) return false;
+    if (item.roles && !hasRole(...item.roles)) return false;
     return true;
   };
-
-  const renderLinks = (items: NavItem[]) =>
-    items.filter(visible).map((item) => {
-      const active = item.href === pathname || (item.href !== '/dashboard' && item.href !== '/admin' && pathname.startsWith(item.href));
-      return (
-        <Link key={item.href} href={item.href} className={active ? 'active' : ''}>
-          {item.icon} <span>{item.label}</span>
-        </Link>
-      );
-    });
 
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        NISMS
-        <small>{isPlatform ? 'Natural Intellects Control Center' : (school?.name ?? 'School Portal')}</small>
+        {branding?.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={branding.logoUrl} alt="" style={{ maxHeight: 34, marginBottom: 6, display: 'block' }} />
+        ) : null}
+        {branding?.name ?? 'School Portal'}
+        {branding?.settings?.motto && <small>{branding.settings.motto}</small>}
       </div>
       <nav>
-        {isPlatform && (
-          <>
-            <div className="nav-section">Control Center</div>
-            {renderLinks(ADMIN_NAV)}
-            <div className="nav-section">School View</div>
-          </>
-        )}
-        {renderLinks(SCHOOL_NAV)}
+        {NAV.filter(visible).map((item) => {
+          const active = item.href === pathname || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          return (
+            <Link key={item.href} href={item.href} className={active ? 'active' : ''}>
+              {item.icon} <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
       <div className="sidebar-footer">
         <div style={{ color: '#fff', fontWeight: 600 }}>

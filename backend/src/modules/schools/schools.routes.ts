@@ -49,6 +49,7 @@ const settingsSchema = z.object({
   motto: z.string().max(300).optional().nullable(),
   primaryColor: z.string().max(20).optional(),
   secondaryColor: z.string().max(20).optional(),
+  footerText: z.string().max(300).optional().nullable(),
   currency: z.string().max(10).optional(),
   timezone: z.string().max(60).optional(),
   gradingScale: z

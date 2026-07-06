@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { api } from './api';
+import { api, getSchoolContext, setSchoolContext } from './api';
 
 export type Role =
   | 'SUPER_ADMIN'
@@ -14,6 +14,8 @@ export type Role =
   | 'TEACHER'
   | 'STUDENT';
 
+export type Audience = 'nisms:school' | 'nisms:platform';
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -21,16 +23,35 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   schoolId: string | null;
+  audience: Audience;
+}
+
+export interface SchoolBranding {
+  id: string;
+  name: string;
+  logoUrl?: string | null;
+  settings?: {
+    motto?: string | null;
+    primaryColor?: string | null;
+    secondaryColor?: string | null;
+    footerText?: string | null;
+    currency?: string;
+  } | null;
 }
 
 export interface AuthState {
   user: AuthUser | null;
-  school: { id: string; name: string; logoUrl?: string | null } | null;
+  school: SchoolBranding | null;
   features: Record<string, boolean> | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  /** Platform staff only: the school workspace currently being viewed. */
+  schoolContext: SchoolBranding | null;
+  loginSchool: (email: string, password: string) => Promise<AuthUser>;
+  loginPlatform: (email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
   refresh: () => Promise<void>;
+  enterSchoolContext: (schoolId: string) => void;
+  exitSchoolContext: () => void;
   hasFeature: (key: string) => boolean;
   hasRole: (...roles: Role[]) => boolean;
 }
@@ -39,8 +60,9 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [school, setSchool] = useState<AuthState['school']>(null);
+  const [school, setSchool] = useState<SchoolBranding | null>(null);
   const [features, setFeatures] = useState<Record<string, boolean> | null>(null);
+  const [schoolContext, setSchoolContextState] = useState<SchoolBranding | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -49,10 +71,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const data = await api<{ user: AuthUser; school: AuthState['school']; features: Record<string, boolean> | null }>('/api/auth/me');
+      const data = await api<{ user: AuthUser; school: SchoolBranding | null; features: Record<string, boolean> | null }>(
+        '/api/auth/me'
+      );
       setUser(data.user);
       setSchool(data.school);
       setFeatures(data.features);
+
+      // Platform staff with an open School Context: load that school's real
+      // profile and feature map so the workspace reflects the actual plan.
+      if (data.user.audience === 'nisms:platform' && getSchoolContext()) {
+        try {
+          const ctx = await api<SchoolBranding & { features: Record<string, boolean> }>('/api/school');
+          const { features: ctxFeatures, ...ctxSchool } = ctx;
+          setSchoolContextState(ctxSchool);
+          setFeatures(ctxFeatures);
+        } catch {
+          setSchoolContext(null);
+          setSchoolContextState(null);
+        }
+      }
     } catch {
       setUser(null);
     } finally {
@@ -64,35 +102,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const data = await api<{ token: string; user: AuthUser; features: Record<string, boolean> | null }>('/api/auth/login', {
-      method: 'POST',
-      body: { email, password },
-    });
-    localStorage.setItem('nisms_token', data.token);
-    setUser(data.user);
-    setFeatures(data.features);
-    await new Promise((r) => setTimeout(r, 0));
-    return data.user;
-  }, []);
+  const doLogin = useCallback(
+    async (path: string, email: string, password: string) => {
+      const data = await api<{ token: string; user: AuthUser }>(path, { method: 'POST', body: { email, password } });
+      localStorage.setItem('nisms_token', data.token);
+      await refresh();
+      return data.user;
+    },
+    [refresh]
+  );
+
+  const loginSchool = useCallback(
+    (email: string, password: string) => doLogin('/api/auth/login', email, password),
+    [doLogin]
+  );
+  const loginPlatform = useCallback(
+    (email: string, password: string) => doLogin('/api/admin/auth/login', email, password),
+    [doLogin]
+  );
 
   const logout = useCallback(() => {
+    const wasPlatform = user?.audience === 'nisms:platform';
     localStorage.removeItem('nisms_token');
-    localStorage.removeItem('nisms_active_school');
+    setSchoolContext(null);
     setUser(null);
     setSchool(null);
     setFeatures(null);
-    window.location.href = '/login';
+    setSchoolContextState(null);
+    window.location.href = wasPlatform ? '/admin/login' : '/login';
+  }, [user]);
+
+  const enterSchoolContext = useCallback((schoolId: string) => {
+    setSchoolContext(schoolId);
+    window.location.href = '/dashboard';
   }, []);
 
-  const hasFeature = useCallback(
-    (key: string) => {
-      // Platform admins bypass feature gating in the UI; backend still enforces.
-      if (user && (user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT_ADMIN')) return true;
-      return features?.[key] === true;
-    },
-    [features, user]
-  );
+  const exitSchoolContext = useCallback(() => {
+    setSchoolContext(null);
+    setSchoolContextState(null);
+    window.location.href = '/admin';
+  }, []);
+
+  const hasFeature = useCallback((key: string) => features?.[key] === true, [features]);
 
   const hasRole = useCallback(
     (...roles: Role[]) => {
@@ -104,7 +155,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <AuthContext.Provider value={{ user, school, features, loading, login, logout, refresh, hasFeature, hasRole }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        school,
+        features,
+        loading,
+        schoolContext,
+        loginSchool,
+        loginPlatform,
+        logout,
+        refresh,
+        enterSchoolContext,
+        exitSchoolContext,
+        hasFeature,
+        hasRole,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -114,4 +181,8 @@ export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
+}
+
+export function isPlatformUser(user: AuthUser | null): boolean {
+  return user?.audience === 'nisms:platform';
 }

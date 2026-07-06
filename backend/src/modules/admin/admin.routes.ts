@@ -5,15 +5,16 @@ import { PlanType, Prisma, Role, SchoolStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { audit } from '../../lib/audit';
 import { ALL_FEATURE_KEYS, applyPlanFeatures, FeatureKey, getSchoolFeatures, invalidateFeatureCache, PLAN_FEATURES } from '../../lib/features';
-import { authenticate, requireRoles } from '../../middleware/auth';
+import { authenticate, requirePlatformDomain, requireRoles } from '../../middleware/auth';
 import { asyncHandler, badRequest, notFound } from '../../middleware/error';
 
 /**
  * Natural Intellects Control Center — platform-level administration.
- * All routes require SUPER_ADMIN (SUPPORT_ADMIN gets read access where noted).
+ * Application A boundary: platform sessions only, then SUPER_ADMIN
+ * (SUPPORT_ADMIN gets read access where noted).
  */
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, requirePlatformDomain);
 
 // ---------------- Schools management ----------------
 

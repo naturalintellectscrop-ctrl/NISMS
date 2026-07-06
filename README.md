@@ -34,6 +34,10 @@ npm install
 npm run dev                   # http://localhost:3000
 ```
 
+NISMS is two applications sharing one backend — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md):
+- **School portal** (Application B): `http://localhost:3000/login`
+- **Natural Intellects Control Center** (Application A): `http://localhost:3000/admin/login`
+
 ### Seeded login accounts
 
 | Account | Email | Password |

@@ -172,6 +172,7 @@ model SchoolSettings {
   motto          String?
   primaryColor   String?  @default("#1D4ED8")
   secondaryColor String?  @default("#0F172A")
+  footerText     String?
   currency       String   @default("UGX")
   timezone       String   @default("Africa/Kampala")
   gradingScale   Json? // e.g. [{"grade":"A","min":80,"max":100}, ...]
@@ -291,6 +292,7 @@ model User {
   firstName    String
   lastName     String
   isActive     Boolean   @default(true)
+  tokenVersion Int       @default(0) // bumped on password change / deactivation / role change → revokes all sessions
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -636,6 +638,14 @@ model Payment {
   @@unique([schoolId, receiptNumber])
   @@index([schoolId, studentId])
   @@map("payments")
+}
+
+/// Atomic per-school receipt sequence: row-level lock on increment serializes concurrent payments.
+model ReceiptCounter {
+  schoolId   String @id
+  lastNumber Int    @default(0)
+
+  @@map("receipt_counters")
 }
 
 model PaymentAdjustment {

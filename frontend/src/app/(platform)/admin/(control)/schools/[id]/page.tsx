@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api, setActiveSchoolId } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Badge, Field, Modal, Stat, Toggle, dateStr, money, statusTone, useSubmit } from '@/components/ui';
 
@@ -31,7 +31,7 @@ interface SchoolDetail {
 export default function AdminSchoolDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { hasRole } = useAuth();
+  const { hasRole, enterSchoolContext } = useAuth();
   const [school, setSchool] = useState<SchoolDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showBilling, setShowBilling] = useState(false);
@@ -70,14 +70,8 @@ export default function AdminSchoolDetailPage() {
         </h1>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn secondary small" onClick={() => router.push('/admin/schools')}>← Back</button>
-          <button
-            className="btn secondary small"
-            onClick={() => {
-              setActiveSchoolId(school.id);
-              router.push('/dashboard');
-            }}
-          >
-            Open school view →
+          <button className="btn secondary small" onClick={() => enterSchoolContext(school.id)}>
+            Open school workspace →
           </button>
           {isSuper && school.status !== 'SUSPENDED' && (
             <button className="btn danger small" onClick={() => void changeStatus('SUSPENDED')}>Suspend</button>
@@ -163,7 +157,7 @@ export default function AdminSchoolDetailPage() {
                   <tr key={key}>
                     <td>{key.replace(/_/g, ' ')}</td>
                     <td style={{ width: 70, textAlign: 'right' }}>
-                      <Toggle on={enabled} disabled={!isSuper} onChange={(next) => void toggleFeature(key, next)} />
+                      <Toggle label={key} on={enabled} disabled={!isSuper} onChange={(next) => void toggleFeature(key, next)} />
                     </td>
                   </tr>
                 ))}

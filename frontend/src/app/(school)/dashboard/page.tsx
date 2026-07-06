@@ -19,7 +19,7 @@ export default function DashboardPage() {
   const [announcements, setAnnouncements] = useState<Array<{ id: string; title: string; body: string; publishedAt: string | null; audience: string }>>([]);
 
   useEffect(() => {
-    if (!user || user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT_ADMIN') return;
+    if (!user) return;
     if (hasFeature('STUDENTS')) {
       api<Paged<unknown>>('/api/students', { query: { pageSize: 1, status: 'ACTIVE' } })
         .then((d) => setStudents(d.total))
@@ -35,7 +35,7 @@ export default function DashboardPage() {
         .then((d) => setClasses(d.length))
         .catch(() => setClasses(null));
     }
-    if (hasFeature('FEES') && ['SCHOOL_ADMIN', 'PROPRIETOR', 'BURSAR', 'SECRETARY'].includes(user.role)) {
+    if (hasFeature('FEES') && ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PROPRIETOR', 'BURSAR', 'SECRETARY'].includes(user.role)) {
       api<{ totals: { outstanding: number } }>('/api/finance/balances')
         .then((d) => setOutstanding(`UGX ${d.totals.outstanding.toLocaleString()}`))
         .catch(() => setOutstanding(null));
@@ -98,7 +98,7 @@ export default function DashboardPage() {
               ))}
             </div>
             <p className="muted" style={{ marginTop: 10 }}>
-              Locked features are available on higher plans. Contact Natural Intellects to upgrade.
+              Locked modules aren&apos;t included in your school&apos;s current plan. Contact support to enable them.
             </p>
           </div>
         )}

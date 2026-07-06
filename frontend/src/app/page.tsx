@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useAuth, isPlatformUser } from '@/lib/auth';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -11,9 +11,9 @@ export default function Home() {
   useEffect(() => {
     if (loading) return;
     if (!user) router.replace('/login');
-    else if (user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT_ADMIN') router.replace('/admin');
+    else if (isPlatformUser(user)) router.replace('/admin');
     else router.replace('/dashboard');
   }, [user, loading, router]);
 
-  return <div className="empty">Loading NISMS…</div>;
+  return <div className="empty">Loading…</div>;
 }

@@ -5,22 +5,27 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Field, useSubmit } from '@/components/ui';
 
-export default function LoginPage() {
-  const { login } = useAuth();
+/**
+ * School Management System sign-in (Application B).
+ * Platform accounts fail here with the same generic message as bad
+ * credentials — this application does not acknowledge the platform exists.
+ */
+export default function SchoolLoginPage() {
+  const { loginSchool } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const { busy, error, submit } = useSubmit(async () => {
-    const user = await login(email, password);
-    router.replace(user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT_ADMIN' ? '/admin' : '/dashboard');
+    await loginSchool(email, password);
+    router.replace('/dashboard');
   });
 
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>NISMS</h1>
-        <p className="sub">Natural Intellects School Management System</p>
+        <h1>School Portal</h1>
+        <p className="sub">Sign in to your school management system</p>
         <form onSubmit={submit}>
           <Field label="Email address">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />

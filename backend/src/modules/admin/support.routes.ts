@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Role, TicketPriority, TicketStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { audit } from '../../lib/audit';
-import { authenticate, requireRoles, PLATFORM_ROLES } from '../../middleware/auth';
+import { authenticate, requirePlatformDomain, requireRoles, PLATFORM_ROLES } from '../../middleware/auth';
 import { asyncHandler, badRequest, forbidden, notFound } from '../../middleware/error';
 
 /**
@@ -115,9 +115,10 @@ const updateTicketSchema = z.object({
   assignedTo: z.string().uuid().optional().nullable(),
 });
 
-/** PATCH /api/support/tickets/:id — triage (platform admins only). */
+/** PATCH /api/support/tickets/:id — triage (platform staff only). */
 router.patch(
   '/tickets/:id',
+  requirePlatformDomain,
   requireRoles(Role.SUPPORT_ADMIN),
   asyncHandler(async (req, res) => {
     const body = updateTicketSchema.parse(req.body);

@@ -62,18 +62,18 @@ router.get(
 
 // ---------------- Payments (immutable) ----------------
 
-/** Generates the next sequential receipt number for the school, e.g. RCT-000042. */
+/**
+ * Generates the next sequential receipt number for the school, e.g. RCT-000042.
+ * Atomic: the counter row update takes a row-level lock, so concurrent
+ * payments serialize instead of colliding.
+ */
 async function nextReceiptNumber(tx: Prisma.TransactionClient, schoolId: string): Promise<string> {
-  const count = await tx.payment.count({ where: { schoolId } });
-  let seq = count + 1;
-  // Guard against gaps/races: bump until free.
-  // Receipt numbers are unique per school (DB constraint is the final authority).
-  for (;;) {
-    const candidate = `RCT-${String(seq).padStart(6, '0')}`;
-    const exists = await tx.payment.findUnique({ where: { schoolId_receiptNumber: { schoolId, receiptNumber: candidate } } });
-    if (!exists) return candidate;
-    seq += 1;
-  }
+  await tx.receiptCounter.upsert({ where: { schoolId }, create: { schoolId, lastNumber: 0 }, update: {} });
+  const counter = await tx.receiptCounter.update({
+    where: { schoolId },
+    data: { lastNumber: { increment: 1 } },
+  });
+  return `RCT-${String(counter.lastNumber).padStart(6, '0')}`;
 }
 
 const paymentSchema = z.object({

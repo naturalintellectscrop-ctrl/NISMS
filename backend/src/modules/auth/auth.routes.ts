@@ -1,12 +1,21 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { Role } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { audit } from '../../lib/audit';
 import { getSchoolFeatures } from '../../lib/features';
-import { authenticate, requireRoles, signToken, PLATFORM_ROLES } from '../../middleware/auth';
-import { asyncHandler, badRequest, forbidden, unauthorized } from '../../middleware/error';
+import { clearFailures, isRateLimited, loginKeys, recordFailure } from '../../lib/ratelimit';
+import {
+  AUDIENCE,
+  Audience,
+  audienceForRole,
+  authenticate,
+  requireRoles,
+  signToken,
+  PLATFORM_ROLES,
+} from '../../middleware/auth';
+import { ApiError, asyncHandler, badRequest, forbidden, unauthorized } from '../../middleware/error';
 
 const router = Router();
 
@@ -15,31 +24,59 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-/** POST /api/auth/login */
+function clientIp(req: Request): string {
+  return (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ?? req.ip ?? 'unknown';
+}
+
+/**
+ * Shared credential check used by both applications' login endpoints.
+ * Wrong-domain accounts fail with the same generic message as bad
+ * credentials — neither application reveals the other's existence.
+ */
+export async function performLogin(req: Request, expectedAudience: Audience) {
+  const { email, password } = loginSchema.parse(req.body);
+  const keys = loginKeys(clientIp(req), email);
+  if (keys.some(isRateLimited)) {
+    throw new ApiError(429, 'Too many attempts. Please try again in 15 minutes.');
+  }
+
+  const fail = (): never => {
+    keys.forEach(recordFailure);
+    throw unauthorized('Invalid email or password');
+  };
+
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    include: { school: { select: { id: true, name: true, status: true, logoUrl: true } } },
+  });
+  if (!user || !user.isActive) fail();
+  const valid = await bcrypt.compare(password, user!.passwordHash);
+  if (!valid) fail();
+  if (audienceForRole(user!.role) !== expectedAudience) fail();
+
+  if (user!.role === Role.STUDENT) {
+    throw forbidden('The student portal is coming soon.');
+  }
+  if (user!.school && user!.school.status === 'SUSPENDED') {
+    throw forbidden('This account is currently suspended. Contact support.');
+  }
+
+  keys.forEach(clearFailures);
+  await prisma.user.update({ where: { id: user!.id }, data: { lastLoginAt: new Date() } });
+  audit({ schoolId: user!.schoolId, userId: user!.id, action: 'USER_LOGIN' });
+
+  return user!;
+}
+
+/** POST /api/auth/login — School Management System sign-in (Application B). */
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
-    const { email, password } = loginSchema.parse(req.body);
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      include: { school: { select: { id: true, name: true, status: true, logoUrl: true } } },
-    });
-    if (!user || !user.isActive) throw unauthorized('Invalid email or password');
-
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) throw unauthorized('Invalid email or password');
-
-    if (user.school && user.school.status === 'SUSPENDED') {
-      throw forbidden('This school account is suspended. Contact Natural Intellects support.');
-    }
-
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    audit({ schoolId: user.schoolId, userId: user.id, action: 'USER_LOGIN' });
-
+    const user = await performLogin(req, AUDIENCE.SCHOOL);
     const features = user.schoolId ? await getSchoolFeatures(user.schoolId) : null;
 
     res.json({
-      token: signToken(user),
+      token: signToken(user, AUDIENCE.SCHOOL),
       user: {
         id: user.id,
         email: user.email,
@@ -47,14 +84,15 @@ router.post(
         firstName: user.firstName,
         lastName: user.lastName,
         schoolId: user.schoolId,
-        school: user.school ? { id: user.school.id, name: user.school.name, logoUrl: user.school.logoUrl } : null,
+        audience: AUDIENCE.SCHOOL,
       },
+      school: user.school ? { id: user.school.id, name: user.school.name, logoUrl: user.school.logoUrl } : null,
       features,
     });
   })
 );
 
-/** GET /api/auth/me */
+/** GET /api/auth/me — session info for either application. */
 router.get(
   '/me',
   authenticate,
@@ -64,7 +102,13 @@ router.get(
     const school = user.schoolId
       ? await prisma.school.findUnique({
           where: { id: user.schoolId },
-          select: { id: true, name: true, logoUrl: true, status: true },
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+            status: true,
+            settings: { select: { motto: true, primaryColor: true, secondaryColor: true, footerText: true, currency: true } },
+          },
         })
       : null;
     res.json({ user, school, features });
@@ -101,7 +145,7 @@ router.post(
       }
     } else {
       if (PLATFORM_ROLES.includes(body.role)) {
-        throw forbidden('You cannot create platform administrator accounts');
+        throw forbidden('You cannot create this type of account');
       }
       schoolId = actor.schoolId;
     }
@@ -151,7 +195,11 @@ const updateUserSchema = z.object({
   password: z.string().min(8).optional(),
 });
 
-/** PATCH /api/auth/users/:id — activate/deactivate, change role or reset password. */
+/**
+ * PATCH /api/auth/users/:id — activate/deactivate, change role or reset password.
+ * Password change, deactivation and role change bump tokenVersion, revoking
+ * every outstanding session for that user instantly.
+ */
 router.patch(
   '/users/:id',
   authenticate,
@@ -164,8 +212,11 @@ router.patch(
     if (!target) throw badRequest('User not found');
     if (actor.role !== Role.SUPER_ADMIN && target.schoolId !== actor.schoolId) throw forbidden();
     if (actor.role !== Role.SUPER_ADMIN && body.role && PLATFORM_ROLES.includes(body.role)) {
-      throw forbidden('You cannot assign platform administrator roles');
+      throw forbidden('You cannot assign this role');
     }
+
+    const revokesSessions =
+      body.password !== undefined || body.isActive === false || (body.role !== undefined && body.role !== target.role);
 
     const user = await prisma.user.update({
       where: { id: target.id },
@@ -175,11 +226,12 @@ router.patch(
         firstName: body.firstName,
         lastName: body.lastName,
         passwordHash: body.password ? await bcrypt.hash(body.password, 10) : undefined,
+        tokenVersion: revokesSessions ? { increment: 1 } : undefined,
       },
       select: { id: true, email: true, role: true, firstName: true, lastName: true, isActive: true },
     });
 
-    audit({ schoolId: target.schoolId, userId: actor.id, action: 'USER_UPDATED', entityType: 'User', entityId: user.id, newValues: { isActive: body.isActive, role: body.role } });
+    audit({ schoolId: target.schoolId, userId: actor.id, action: 'USER_UPDATED', entityType: 'User', entityId: user.id, newValues: { isActive: body.isActive, role: body.role, sessionsRevoked: revokesSessions } });
     res.json(user);
   })
 );

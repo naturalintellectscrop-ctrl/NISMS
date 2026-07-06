@@ -15,6 +15,7 @@ import financeRoutes from './modules/finance/finance.routes';
 import announcementRoutes from './modules/announcements/announcements.routes';
 import cmsRoutes, { publicRouter as publicCmsRoutes } from './modules/cms/cms.routes';
 import adminRoutes from './modules/admin/admin.routes';
+import adminAuthRoutes from './modules/admin/admin.auth.routes';
 import supportRoutes from './modules/admin/support.routes';
 
 export function createApp(): express.Express {
@@ -48,7 +49,8 @@ export function createApp(): express.Express {
   app.use('/api/announcements', announcementRoutes);
   app.use('/api/cms', cmsRoutes);
 
-  // Natural Intellects Control Center (platform admins)
+  // Natural Intellects Control Center (Application A — platform sessions only)
+  app.use('/api/admin/auth', adminAuthRoutes); // must mount before the guarded admin router
   app.use('/api/admin', adminRoutes);
   app.use('/api/support', supportRoutes);
 

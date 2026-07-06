@@ -12,8 +12,15 @@ interface SchoolProfile {
   email: string;
   phone: string;
   address?: string | null;
+  logoUrl?: string | null;
   subscription?: { planType: string; status: string; renewalDate: string } | null;
-  settings?: { motto?: string | null; currency: string } | null;
+  settings?: {
+    motto?: string | null;
+    currency: string;
+    primaryColor?: string | null;
+    secondaryColor?: string | null;
+    footerText?: string | null;
+  } | null;
 }
 
 interface UserRow {
@@ -40,14 +47,30 @@ export default function SettingsPage() {
     if (!school) return;
     await api('/api/school', {
       method: 'PATCH',
-      body: { name: school.name, email: school.email, phone: school.phone, address: school.address ?? undefined },
+      body: {
+        name: school.name,
+        email: school.email,
+        phone: school.phone,
+        address: school.address ?? undefined,
+        logoUrl: school.logoUrl || null,
+      },
     });
-    if (school.settings) {
-      await api('/api/school/settings', { method: 'PUT', body: { motto: school.settings.motto ?? null, currency: school.settings.currency } });
-    }
+    await api('/api/school/settings', {
+      method: 'PUT',
+      body: {
+        motto: school.settings?.motto ?? null,
+        currency: school.settings?.currency ?? 'UGX',
+        primaryColor: school.settings?.primaryColor ?? undefined,
+        secondaryColor: school.settings?.secondaryColor ?? undefined,
+        footerText: school.settings?.footerText ?? null,
+      },
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   });
+
+  const setSettings = (patch: Partial<NonNullable<SchoolProfile['settings']>>) =>
+    setSchool((s) => (s ? { ...s, settings: { currency: 'UGX', ...s.settings, ...patch } } : s));
 
   if (!school) return <div className="empty">Loading…</div>;
 
@@ -82,18 +105,47 @@ export default function SettingsPage() {
                 <input value={school.address ?? ''} onChange={(e) => setSchool({ ...school, address: e.target.value })} />
               </Field>
               <Field label="Motto">
-                <input
-                  value={school.settings?.motto ?? ''}
-                  onChange={(e) => setSchool({ ...school, settings: { currency: 'UGX', ...school.settings, motto: e.target.value } })}
-                />
+                <input value={school.settings?.motto ?? ''} onChange={(e) => setSettings({ motto: e.target.value })} />
               </Field>
               <Field label="Currency">
+                <input value={school.settings?.currency ?? 'UGX'} onChange={(e) => setSettings({ currency: e.target.value })} />
+              </Field>
+            </div>
+
+            <h2 style={{ marginTop: 10 }}>Branding</h2>
+            <p className="muted" style={{ marginBottom: 10 }}>
+              Your logo, colours and footer appear across your school&apos;s portal and website.
+            </p>
+            <div className="form-row">
+              <Field label="Logo URL">
                 <input
-                  value={school.settings?.currency ?? 'UGX'}
-                  onChange={(e) => setSchool({ ...school, settings: { ...school.settings, currency: e.target.value } })}
+                  value={school.logoUrl ?? ''}
+                  placeholder="https://…/logo.png"
+                  onChange={(e) => setSchool({ ...school, logoUrl: e.target.value })}
+                />
+              </Field>
+              <Field label="Primary colour">
+                <input
+                  type="color"
+                  value={school.settings?.primaryColor ?? '#1D4ED8'}
+                  onChange={(e) => setSettings({ primaryColor: e.target.value })}
+                />
+              </Field>
+              <Field label="Secondary colour">
+                <input
+                  type="color"
+                  value={school.settings?.secondaryColor ?? '#0F172A'}
+                  onChange={(e) => setSettings({ secondaryColor: e.target.value })}
                 />
               </Field>
             </div>
+            <Field label="Footer text">
+              <input
+                value={school.settings?.footerText ?? ''}
+                placeholder="e.g. © St Mary's Secondary School — Kampala"
+                onChange={(e) => setSettings({ footerText: e.target.value })}
+              />
+            </Field>
             {error && <p className="error-text">{error}</p>}
             {saved && <p className="success-text">Settings saved.</p>}
             {hasRole('SCHOOL_ADMIN') && <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>}

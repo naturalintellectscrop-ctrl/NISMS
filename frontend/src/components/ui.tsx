@@ -71,22 +71,37 @@ export function Field({
   label: string;
   children: React.ReactNode;
 }) {
+  // Children render inside the <label> so inputs are implicitly associated (a11y).
   return (
     <div className="field">
-      <label>{label}</label>
-      {children}
+      <label>
+        <span className="field-label">{label}</span>
+        {children}
+      </label>
     </div>
   );
 }
 
-export function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (next: boolean) => void; disabled?: boolean }) {
+export function Toggle({
+  on,
+  onChange,
+  disabled,
+  label = 'Toggle',
+}: {
+  on: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+  label?: string;
+}) {
   return (
     <button
       type="button"
       className={`toggle ${on ? 'on' : ''}`}
       disabled={disabled}
       onClick={() => onChange(!on)}
-      aria-pressed={on}
+      aria-pressed={on ? 'true' : 'false'}
+      aria-label={label}
+      title={label}
     />
   );
 }
