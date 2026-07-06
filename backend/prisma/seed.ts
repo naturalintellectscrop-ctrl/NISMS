@@ -3,6 +3,7 @@
  * a full set of role accounts, academic structure and sample records.
  * Run: npm run seed  (idempotent — safe to re-run)
  */
+import 'dotenv/config';
 import { PlanType, PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 

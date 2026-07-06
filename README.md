@@ -108,6 +108,7 @@ npm run build            # production build (validates all 20 routes)
 ```
 
 ## Deployment notes
+- **Vercel (frontend):** set *Root Directory* to `frontend` when importing this repo, and add the `NEXT_PUBLIC_API_URL` env var. The Express backend cannot run on Vercel — host it on Railway/Render/Fly.io with `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`.
 - Set a strong `JWT_SECRET`; the API refuses to boot in production with the dev default.
 - Run `npx prisma migrate deploy` on release.
 - Frontend needs only `NEXT_PUBLIC_API_URL`.
