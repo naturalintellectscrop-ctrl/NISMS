@@ -3,7 +3,8 @@
 // Platform-level tables (School, Subscription, SupportTicket, AuditLog) manage tenants.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // native = local dev, rhel = Vercel/AWS Lambda
 }
 
 datasource db {

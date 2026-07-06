@@ -21,7 +21,9 @@ export function createApp(): express.Express {
   const app = express();
 
   app.use(helmet());
-  app.use(cors());
+  // CORS_ORIGIN: comma-separated allowlist (e.g. "https://nisms.vercel.app"); unset = allow all.
+  const corsOrigin = process.env.CORS_ORIGIN;
+  app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((o) => o.trim()) } : {}));
   app.use(express.json({ limit: '2mb' }));
 
   app.get('/api/health', (_req, res) => {
