@@ -1,4 +1,9 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+/**
+ * Empty default = same origin: in production the frontend proxies /api/* to
+ * the backend (see next.config.mjs). NEXT_PUBLIC_API_URL overrides for
+ * local dev (e.g. http://localhost:4000) or a directly-exposed API.
+ */
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export class ApiError extends Error {
   constructor(
@@ -33,7 +38,8 @@ export async function api<T = unknown>(
   path: string,
   options: { method?: string; body?: unknown; query?: Record<string, string | number | undefined> } = {}
 ): Promise<T> {
-  const url = new URL(`${API_URL}${path}`);
+  const base = API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+  const url = new URL(`${base}${path}`);
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined && value !== '') url.searchParams.set(key, String(value));
   }
