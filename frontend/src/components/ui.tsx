@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ApiError } from '@/lib/api';
 
 export function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -117,7 +118,13 @@ export function useSubmit(action: () => Promise<void>) {
     try {
       await action();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      // Surface field-level validation details, e.g. "email: Invalid email".
+      if (err instanceof ApiError && Array.isArray(err.details) && err.details.length > 0) {
+        const first = err.details[0] as { path?: string; message?: string };
+        setError(first.message ? `${first.path ? `${first.path}: ` : ''}${first.message}` : err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong');
+      }
     } finally {
       setBusy(false);
     }
