@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, dateStr, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface Announcement {
   id: string;
@@ -18,12 +19,15 @@ export default function AnnouncementsPage() {
   const { hasRole } = useAuth();
   const [rows, setRows] = useState<Announcement[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(true);
   const canManage = hasRole('SCHOOL_ADMIN', 'HEAD_TEACHER', 'SECRETARY');
 
   const load = useCallback(() => {
+    setLoading(true);
     api<Announcement[]>('/api/announcements', { query: canManage ? { includeDrafts: 'true' } : {} })
       .then(setRows)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [canManage]);
 
   useEffect(() => { load(); }, [load]);
@@ -32,11 +36,26 @@ export default function AnnouncementsPage() {
     <>
       <div className="topbar">
         <h1>Announcements</h1>
-        {canManage && <button className="btn" onClick={() => setShowCreate(true)}>+ New announcement</button>}
+        {canManage && (
+          <button className="btn icon-btn" onClick={() => setShowCreate(true)}>
+            <Icon name="add" size={16} />
+            New announcement
+          </button>
+        )}
       </div>
       <div className="content">
-        {rows.length === 0 && <div className="empty">No announcements.</div>}
-        {rows.map((a) => (
+        {loading && <div className="card"><TableSkeleton rows={4} cols={1} /></div>}
+        {!loading && rows.length === 0 && (
+          <div className="card">
+            <EmptyState
+              icon="announcements"
+              title="No announcements yet."
+              hint={canManage ? 'Post an announcement to keep staff, students and parents informed.' : 'Announcements from your school will appear here.'}
+              action={canManage ? { label: 'New announcement', onClick: () => setShowCreate(true) } : undefined}
+            />
+          </div>
+        )}
+        {!loading && rows.map((a) => (
           <div className="card" key={a.id}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <strong>{a.title}</strong>

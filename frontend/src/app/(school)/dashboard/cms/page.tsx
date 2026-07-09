@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, dateStr, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface NewsItem { id: string; title: string; slug: string; content: string; publishedAt: string | null; createdAt: string }
 interface GalleryItem { id: string; title: string; imageUrl: string; description?: string | null; uploadedAt: string }
@@ -14,11 +15,15 @@ export default function CmsPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [modal, setModal] = useState<'news' | 'gallery' | null>(null);
+  const [loading, setLoading] = useState(true);
   const canWrite = hasRole('SCHOOL_ADMIN', 'SECRETARY');
 
   const load = useCallback(() => {
-    api<NewsItem[]>('/api/cms/news').then(setNews).catch(() => {});
-    api<GalleryItem[]>('/api/cms/gallery').then(setGallery).catch(() => {});
+    setLoading(true);
+    Promise.allSettled([
+      api<NewsItem[]>('/api/cms/news').then(setNews),
+      api<GalleryItem[]>('/api/cms/gallery').then(setGallery),
+    ]).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -27,8 +32,9 @@ export default function CmsPage() {
       <div className="topbar">
         <h1>Website (CMS)</h1>
         {canWrite && (
-          <button className="btn" onClick={() => setModal(tab)}>
-            {tab === 'news' ? '+ News article' : '+ Gallery image'}
+          <button className="btn icon-btn" onClick={() => setModal(tab)}>
+            <Icon name="add" size={16} />
+            {tab === 'news' ? 'News article' : 'Gallery image'}
           </button>
         )}
       </div>
@@ -40,46 +46,68 @@ export default function CmsPage() {
 
         {tab === 'news' && (
           <div className="card">
-            <table className="table">
-              <thead><tr><th>Title</th><th>Status</th><th>Created</th><th></th></tr></thead>
-              <tbody>
-                {news.map((n) => (
-                  <tr key={n.id}>
-                    <td style={{ fontWeight: 600 }}>{n.title}</td>
-                    <td>{n.publishedAt ? <Badge tone="green">Published</Badge> : <Badge tone="amber">Draft</Badge>}</td>
-                    <td className="muted">{dateStr(n.createdAt)}</td>
-                    <td>
-                      {canWrite && !n.publishedAt && (
-                        <button className="btn secondary small" onClick={() => api(`/api/cms/news/${n.id}`, { method: 'PATCH', body: { publish: true } }).then(load)}>
-                          Publish
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {news.length === 0 && <div className="empty">No news articles yet.</div>}
+            {loading ? (
+              <TableSkeleton rows={4} cols={4} />
+            ) : news.length === 0 ? (
+              <EmptyState
+                icon="website"
+                title="No news articles yet."
+                hint={canWrite ? 'Publish news and events to keep your school website up to date.' : undefined}
+                action={canWrite ? { label: 'News article', onClick: () => setModal('news') } : undefined}
+              />
+            ) : (
+              <table className="table">
+                <thead><tr><th>Title</th><th>Status</th><th>Created</th><th></th></tr></thead>
+                <tbody>
+                  {news.map((n) => (
+                    <tr key={n.id}>
+                      <td style={{ fontWeight: 600 }}>{n.title}</td>
+                      <td>{n.publishedAt ? <Badge tone="green">Published</Badge> : <Badge tone="amber">Draft</Badge>}</td>
+                      <td className="muted">{dateStr(n.createdAt)}</td>
+                      <td>
+                        {canWrite && !n.publishedAt && (
+                          <button className="btn secondary small" onClick={() => api(`/api/cms/news/${n.id}`, { method: 'PATCH', body: { publish: true } }).then(load)}>
+                            Publish
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
         {tab === 'gallery' && (
-          <div className="grid grid-4">
-            {gallery.map((g) => (
-              <div className="card" key={g.id}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={g.imageUrl} alt={g.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, aspectRatio: '4/3', objectFit: 'cover' }} />
-                <strong>{g.title}</strong>
-                <p className="muted">{g.description ?? ''}</p>
-                {canWrite && (
-                  <button className="btn danger small" style={{ marginTop: 8 }} onClick={() => api(`/api/cms/gallery/${g.id}`, { method: 'DELETE' }).then(load)}>
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
-            {gallery.length === 0 && <div className="empty" style={{ gridColumn: '1/-1' }}>No gallery images yet.</div>}
-          </div>
+          loading ? (
+            <div className="card"><TableSkeleton rows={3} cols={4} /></div>
+          ) : gallery.length === 0 ? (
+            <div className="card">
+              <EmptyState
+                icon="website"
+                title="No gallery images yet."
+                hint={canWrite ? 'Add photos of events and activities to showcase your school.' : undefined}
+                action={canWrite ? { label: 'Gallery image', onClick: () => setModal('gallery') } : undefined}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-4">
+              {gallery.map((g) => (
+                <div className="card" key={g.id}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={g.imageUrl} alt={g.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, aspectRatio: '4/3', objectFit: 'cover' }} />
+                  <strong>{g.title}</strong>
+                  <p className="muted">{g.description ?? ''}</p>
+                  {canWrite && (
+                    <button className="btn danger small" style={{ marginTop: 8 }} onClick={() => api(`/api/cms/gallery/${g.id}`, { method: 'DELETE' }).then(load)}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
 

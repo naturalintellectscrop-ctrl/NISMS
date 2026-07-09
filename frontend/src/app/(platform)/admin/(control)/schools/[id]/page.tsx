@@ -129,7 +129,10 @@ export default function AdminSchoolDetailPage() {
                   Changing the plan updates feature flags instantly — no code changes, data retained.
                 </p>
                 {isSuper && (
-                  <button className="btn secondary small" onClick={() => setShowBilling(true)}>+ Record billing payment</button>
+                  <button className="btn secondary small icon-btn" onClick={() => setShowBilling(true)}>
+                    <Icon name="add" size={15} />
+                    Record billing payment
+                  </button>
                 )}
                 {school.subscription.transactions.length > 0 && (
                   <table className="table" style={{ marginTop: 12 }}>

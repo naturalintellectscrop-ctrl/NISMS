@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, dateStr, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface ClassItem {
   id: string;
@@ -23,11 +24,15 @@ export default function AcademicsPage() {
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [terms, setTerms] = useState<TermItem[]>([]);
   const [modal, setModal] = useState<'class' | 'stream' | 'subject' | 'term' | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api<ClassItem[]>('/api/academics/classes').then(setClasses).catch(() => {});
-    api<SubjectItem[]>('/api/academics/subjects').then(setSubjects).catch(() => {});
-    api<TermItem[]>('/api/academics/terms').then(setTerms).catch(() => {});
+    setLoading(true);
+    Promise.allSettled([
+      api<ClassItem[]>('/api/academics/classes').then(setClasses),
+      api<SubjectItem[]>('/api/academics/subjects').then(setSubjects),
+      api<TermItem[]>('/api/academics/terms').then(setTerms),
+    ]).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -42,12 +47,28 @@ export default function AcademicsPage() {
           <div style={{ display: 'flex', gap: 8 }}>
             {tab === 'classes' && (
               <>
-                <button className="btn secondary" onClick={() => setModal('stream')}>+ Stream</button>
-                <button className="btn" onClick={() => setModal('class')}>+ Class</button>
+                <button className="btn secondary icon-btn" onClick={() => setModal('stream')}>
+                  <Icon name="add" size={16} />
+                  Stream
+                </button>
+                <button className="btn icon-btn" onClick={() => setModal('class')}>
+                  <Icon name="add" size={16} />
+                  Class
+                </button>
               </>
             )}
-            {tab === 'subjects' && <button className="btn" onClick={() => setModal('subject')}>+ Subject</button>}
-            {tab === 'terms' && hasRole('SCHOOL_ADMIN') && <button className="btn" onClick={() => setModal('term')}>+ Term</button>}
+            {tab === 'subjects' && (
+              <button className="btn icon-btn" onClick={() => setModal('subject')}>
+                <Icon name="add" size={16} />
+                Subject
+              </button>
+            )}
+            {tab === 'terms' && hasRole('SCHOOL_ADMIN') && (
+              <button className="btn icon-btn" onClick={() => setModal('term')}>
+                <Icon name="add" size={16} />
+                Term
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -62,69 +83,99 @@ export default function AcademicsPage() {
 
         {tab === 'classes' && (
           <div className="card">
-            <table className="table">
-              <thead><tr><th>Class</th><th>Level</th><th>Streams</th><th>Active students</th><th>Class teacher</th></tr></thead>
-              <tbody>
-                {classes.map((c) => (
-                  <tr key={c.id}>
-                    <td style={{ fontWeight: 600 }}>{c.name}</td>
-                    <td>{c.level}</td>
-                    <td>{c.streams.map((s) => s.name).join(', ') || '—'}</td>
-                    <td>{c._count?.students ?? 0}</td>
-                    <td>{c.teachers?.[0] ? `${c.teachers[0].teacher.firstName} ${c.teachers[0].teacher.lastName}` : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {classes.length === 0 && <div className="empty">No classes yet. Create P1, P2, S1… to get started.</div>}
+            {loading ? (
+              <TableSkeleton rows={5} cols={5} />
+            ) : classes.length === 0 ? (
+              <EmptyState
+                icon="academics"
+                title="No classes yet."
+                hint={canManage ? 'Create your classes (P1, P2, S1…) to organise students and streams.' : undefined}
+                action={canManage ? { label: 'Add class', onClick: () => setModal('class') } : undefined}
+              />
+            ) : (
+              <table className="table">
+                <thead><tr><th>Class</th><th>Level</th><th>Streams</th><th>Active students</th><th>Class teacher</th></tr></thead>
+                <tbody>
+                  {classes.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ fontWeight: 600 }}>{c.name}</td>
+                      <td>{c.level}</td>
+                      <td>{c.streams.map((s) => s.name).join(', ') || '—'}</td>
+                      <td>{c._count?.students ?? 0}</td>
+                      <td>{c.teachers?.[0] ? `${c.teachers[0].teacher.firstName} ${c.teachers[0].teacher.lastName}` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
         {tab === 'subjects' && (
           <div className="card">
-            <table className="table">
-              <thead><tr><th>Subject</th><th>Code</th><th>Category</th></tr></thead>
-              <tbody>
-                {subjects.map((s) => (
-                  <tr key={s.id}>
-                    <td style={{ fontWeight: 600 }}>{s.name}</td>
-                    <td>{s.code ?? '—'}</td>
-                    <td><Badge tone="gray">{s.category}</Badge></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {subjects.length === 0 && <div className="empty">No subjects yet.</div>}
+            {loading ? (
+              <TableSkeleton rows={5} cols={3} />
+            ) : subjects.length === 0 ? (
+              <EmptyState
+                icon="academics"
+                title="No subjects yet."
+                hint={canManage ? 'Add the subjects taught at your school so teachers and marks can be assigned.' : undefined}
+                action={canManage ? { label: 'Add subject', onClick: () => setModal('subject') } : undefined}
+              />
+            ) : (
+              <table className="table">
+                <thead><tr><th>Subject</th><th>Code</th><th>Category</th></tr></thead>
+                <tbody>
+                  {subjects.map((s) => (
+                    <tr key={s.id}>
+                      <td style={{ fontWeight: 600 }}>{s.name}</td>
+                      <td>{s.code ?? '—'}</td>
+                      <td><Badge tone="gray">{s.category}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
         {tab === 'terms' && (
           <div className="card">
-            <table className="table">
-              <thead><tr><th>Term</th><th>Year</th><th>Start</th><th>End</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                {terms.map((t) => (
-                  <tr key={t.id}>
-                    <td style={{ fontWeight: 600 }}>{t.name.replace(/_/g, ' ')}</td>
-                    <td>{t.year}</td>
-                    <td>{dateStr(t.startDate)}</td>
-                    <td>{dateStr(t.endDate)}</td>
-                    <td>{t.isActive ? <Badge tone="green">ACTIVE</Badge> : <Badge tone="gray">—</Badge>}</td>
-                    <td>
-                      {!t.isActive && hasRole('SCHOOL_ADMIN') && (
-                        <button
-                          className="btn secondary small"
-                          onClick={() => api(`/api/academics/terms/${t.id}/activate`, { method: 'POST' }).then(load)}
-                        >
-                          Set active
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {terms.length === 0 && <div className="empty">No terms yet.</div>}
+            {loading ? (
+              <TableSkeleton rows={3} cols={6} />
+            ) : terms.length === 0 ? (
+              <EmptyState
+                icon="academics"
+                title="No terms yet."
+                hint={hasRole('SCHOOL_ADMIN') ? 'Create academic terms to schedule exams, fees and reports.' : undefined}
+                action={hasRole('SCHOOL_ADMIN') ? { label: 'Add term', onClick: () => setModal('term') } : undefined}
+              />
+            ) : (
+              <table className="table">
+                <thead><tr><th>Term</th><th>Year</th><th>Start</th><th>End</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  {terms.map((t) => (
+                    <tr key={t.id}>
+                      <td style={{ fontWeight: 600 }}>{t.name.replace(/_/g, ' ')}</td>
+                      <td>{t.year}</td>
+                      <td>{dateStr(t.startDate)}</td>
+                      <td>{dateStr(t.endDate)}</td>
+                      <td>{t.isActive ? <Badge tone="green">ACTIVE</Badge> : <Badge tone="gray">—</Badge>}</td>
+                      <td>
+                        {!t.isActive && hasRole('SCHOOL_ADMIN') && (
+                          <button
+                            className="btn secondary small"
+                            onClick={() => api(`/api/academics/terms/${t.id}/activate`, { method: 'POST' }).then(load)}
+                          >
+                            Set active
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>

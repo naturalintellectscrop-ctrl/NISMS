@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, statusTone, useSubmit } from '@/components/ui';
 import { Icon } from '@/components/icons';
 
 interface TeacherRow {
@@ -32,11 +32,14 @@ export default function TeachersPage() {
   const [selected, setSelected] = useState<TeacherRow | null>(null);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
+    setLoading(true);
     api<{ items: TeacherRow[]; total: number }>('/api/teachers', { query: { search, pageSize: 50 } })
       .then((d) => { setRows(d.items); setTotal(d.total); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [search]);
 
   useEffect(() => { load(); }, [load]);
@@ -52,7 +55,12 @@ export default function TeachersPage() {
     <>
       <div className="topbar">
         <h1>Teachers</h1>
-        {canWrite && <button className="btn" onClick={() => setShowCreate(true)}>+ Register teacher</button>}
+        {canWrite && (
+          <button className="btn icon-btn" onClick={() => setShowCreate(true)}>
+            <Icon name="add" size={16} />
+            Register teacher
+          </button>
+        )}
       </div>
       <div className="content">
         <div className="toolbar">
@@ -61,6 +69,22 @@ export default function TeachersPage() {
           <span className="muted">{total} teachers</span>
         </div>
         <div className="card">
+          {loading ? (
+            <TableSkeleton rows={6} cols={7} />
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon="teachers"
+              title={search ? 'No teachers match your search.' : 'No teachers have been registered yet.'}
+              hint={
+                search
+                  ? 'Try a different name or staff number.'
+                  : canWrite
+                    ? 'Register your teaching staff to assign them to subjects and classes.'
+                    : undefined
+              }
+              action={canWrite && !search ? { label: 'Register teacher', onClick: () => setShowCreate(true) } : undefined}
+            />
+          ) : (
           <table className="table">
             <thead>
               <tr><th>Staff No</th><th>Name</th><th>Phone</th><th>Subjects</th><th>Classes</th><th>Status</th><th></th></tr>
@@ -95,7 +119,7 @@ export default function TeachersPage() {
               ))}
             </tbody>
           </table>
-          {rows.length === 0 && <div className="empty">No teachers found.</div>}
+          )}
         </div>
       </div>
 

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, dateStr, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface ClassItem { id: string; name: string }
 interface SubjectItem { id: string; name: string }
@@ -27,9 +28,11 @@ export default function ExamsPage() {
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [terms, setTerms] = useState<TermItem[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api<ExamItem[]>('/api/exams').then(setExams).catch(() => {});
+    setLoading(true);
+    api<ExamItem[]>('/api/exams').then(setExams).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -45,7 +48,12 @@ export default function ExamsPage() {
     <>
       <div className="topbar">
         <h1>Exams & Reports</h1>
-        {canManage && tab === 'exams' && <button className="btn" onClick={() => setShowCreate(true)}>+ Exam</button>}
+        {canManage && tab === 'exams' && (
+          <button className="btn icon-btn" onClick={() => setShowCreate(true)}>
+            <Icon name="add" size={16} />
+            Exam
+          </button>
+        )}
       </div>
       <div className="content">
         <div className="tabs">
@@ -56,21 +64,31 @@ export default function ExamsPage() {
 
         {tab === 'exams' && (
           <div className="card">
-            <table className="table">
-              <thead><tr><th>Exam</th><th>Class</th><th>Term</th><th>Total marks</th><th>Entries</th></tr></thead>
-              <tbody>
-                {exams.map((e) => (
-                  <tr key={e.id}>
-                    <td style={{ fontWeight: 600 }}>{e.name}</td>
-                    <td>{e.class.name}</td>
-                    <td>{e.term.name.replace(/_/g, ' ')} {e.term.year}</td>
-                    <td>{e.totalMarks}</td>
-                    <td>{e._count?.marks ?? 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {exams.length === 0 && <div className="empty">No exams yet.</div>}
+            {loading ? (
+              <TableSkeleton rows={5} cols={5} />
+            ) : exams.length === 0 ? (
+              <EmptyState
+                icon="exams"
+                title="No exams yet."
+                hint={canManage ? 'Create an exam to record marks and generate report cards.' : undefined}
+                action={canManage ? { label: 'Add exam', onClick: () => setShowCreate(true) } : undefined}
+              />
+            ) : (
+              <table className="table">
+                <thead><tr><th>Exam</th><th>Class</th><th>Term</th><th>Total marks</th><th>Entries</th></tr></thead>
+                <tbody>
+                  {exams.map((e) => (
+                    <tr key={e.id}>
+                      <td style={{ fontWeight: 600 }}>{e.name}</td>
+                      <td>{e.class.name}</td>
+                      <td>{e.term.name.replace(/_/g, ' ')} {e.term.year}</td>
+                      <td>{e.totalMarks}</td>
+                      <td>{e._count?.marks ?? 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 

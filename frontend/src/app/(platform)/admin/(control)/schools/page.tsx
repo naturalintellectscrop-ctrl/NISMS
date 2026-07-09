@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface SchoolRow {
   id: string;
@@ -22,9 +23,11 @@ export default function AdminSchoolsPage() {
   const { hasRole } = useAuth();
   const [rows, setRows] = useState<SchoolRow[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api<SchoolRow[]>('/api/admin/schools').then(setRows).catch(() => {});
+    setLoading(true);
+    api<SchoolRow[]>('/api/admin/schools').then(setRows).catch(() => {}).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -32,32 +35,47 @@ export default function AdminSchoolsPage() {
     <>
       <div className="topbar">
         <h1>Schools</h1>
-        {hasRole() && <button className="btn" onClick={() => setShowCreate(true)}>+ Onboard school</button>}
+        {hasRole() && (
+          <button className="btn icon-btn" onClick={() => setShowCreate(true)}>
+            <Icon name="add" size={16} />
+            Onboard school
+          </button>
+        )}
       </div>
       <div className="content">
         <div className="card">
-          <table className="table">
-            <thead>
-              <tr><th>School</th><th>Plan</th><th>Students</th><th>Teachers</th><th>Users</th><th>Status</th><th>Renewal</th></tr>
-            </thead>
-            <tbody>
-              {rows.map((s) => (
-                <tr key={s.id} className="clickable" onClick={() => router.push(`/admin/schools/${s.id}`)}>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{s.name}</div>
-                    <div className="muted">{s.shortName} · {s.email}</div>
-                  </td>
-                  <td><Badge tone="blue">{s.subscription?.planType ?? '—'}</Badge></td>
-                  <td>{s._count.students}</td>
-                  <td>{s._count.teachers}</td>
-                  <td>{s._count.users}</td>
-                  <td><Badge tone={statusTone(s.status)}>{s.status}</Badge></td>
-                  <td className="muted">{dateStr(s.subscription?.renewalDate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {rows.length === 0 && <div className="empty">No schools onboarded yet.</div>}
+          {loading ? (
+            <TableSkeleton rows={6} cols={7} />
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon="schools"
+              title="No schools onboarded yet."
+              hint={hasRole() ? 'Onboard your first school to create its workspace and administrator account.' : undefined}
+              action={hasRole() ? { label: 'Onboard school', onClick: () => setShowCreate(true) } : undefined}
+            />
+          ) : (
+            <table className="table">
+              <thead>
+                <tr><th>School</th><th>Plan</th><th>Students</th><th>Teachers</th><th>Users</th><th>Status</th><th>Renewal</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => (
+                  <tr key={s.id} className="clickable" onClick={() => router.push(`/admin/schools/${s.id}`)}>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{s.name}</div>
+                      <div className="muted">{s.shortName} · {s.email}</div>
+                    </td>
+                    <td><Badge tone="blue">{s.subscription?.planType ?? '—'}</Badge></td>
+                    <td>{s._count.students}</td>
+                    <td>{s._count.teachers}</td>
+                    <td>{s._count.users}</td>
+                    <td><Badge tone={statusTone(s.status)}>{s.status}</Badge></td>
+                    <td className="muted">{dateStr(s.subscription?.renewalDate)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

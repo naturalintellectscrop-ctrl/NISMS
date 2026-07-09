@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Badge, EmptyState, Field, Modal, Pagination, TableSkeleton, statusTone, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface ClassItem {
   id: string;
@@ -65,8 +66,9 @@ export default function StudentsPage() {
       <div className="topbar">
         <h1>Students</h1>
         {canWrite && (
-          <button className="btn" onClick={() => setShowCreate(true)}>
-            + Register student
+          <button className="btn icon-btn" onClick={() => setShowCreate(true)}>
+            <Icon name="add" size={16} />
+            Register student
           </button>
         )}
       </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Badge, Field, Modal, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface SchoolProfile {
   id: string;
@@ -156,8 +157,9 @@ export default function SettingsPage() {
           <h2>
             Staff accounts{' '}
             {hasRole('SCHOOL_ADMIN') && (
-              <button className="btn small" style={{ float: 'right' }} onClick={() => setShowUser(true)}>
-                + Create account
+              <button className="btn small icon-btn" style={{ float: 'right' }} onClick={() => setShowUser(true)}>
+                <Icon name="add" size={15} />
+                Create account
               </button>
             )}
           </h2>

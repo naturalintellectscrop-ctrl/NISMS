@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Badge, Field, Modal, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, statusTone, useSubmit } from '@/components/ui';
 
 interface Ticket {
   id: string;
@@ -24,9 +24,11 @@ export default function AdminTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [open, setOpen] = useState<TicketDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api<Ticket[]>('/api/support/tickets', { query: { status: statusFilter } }).then(setTickets).catch(() => {});
+    setLoading(true);
+    api<Ticket[]>('/api/support/tickets', { query: { status: statusFilter } }).then(setTickets).catch(() => {}).finally(() => setLoading(false));
   }, [statusFilter]);
   useEffect(() => { load(); }, [load]);
 
@@ -45,22 +47,31 @@ export default function AdminTicketsPage() {
       </div>
       <div className="content">
         <div className="card">
-          <table className="table">
-            <thead><tr><th>School</th><th>Subject</th><th>From</th><th>Priority</th><th>Status</th><th>Opened</th></tr></thead>
-            <tbody>
-              {tickets.map((t) => (
-                <tr key={t.id} className="clickable" onClick={() => openDetail(t.id)}>
-                  <td style={{ fontWeight: 600 }}>{t.school.name}</td>
-                  <td>{t.subject}</td>
-                  <td className="muted">{t.createdBy.firstName} {t.createdBy.lastName}</td>
-                  <td><Badge tone={t.priority === 'URGENT' || t.priority === 'HIGH' ? 'red' : 'gray'}>{t.priority}</Badge></td>
-                  <td><Badge tone={statusTone(t.status)}>{t.status.replace(/_/g, ' ')}</Badge></td>
-                  <td className="muted">{dateStr(t.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {tickets.length === 0 && <div className="empty">No tickets.</div>}
+          {loading ? (
+            <TableSkeleton rows={6} cols={6} />
+          ) : tickets.length === 0 ? (
+            <EmptyState
+              icon="tickets"
+              title={statusFilter ? 'No tickets with this status.' : 'No support tickets yet.'}
+              hint={statusFilter ? 'Clear the filter to see all tickets.' : 'Tickets raised by schools will appear here for triage.'}
+            />
+          ) : (
+            <table className="table">
+              <thead><tr><th>School</th><th>Subject</th><th>From</th><th>Priority</th><th>Status</th><th>Opened</th></tr></thead>
+              <tbody>
+                {tickets.map((t) => (
+                  <tr key={t.id} className="clickable" onClick={() => openDetail(t.id)}>
+                    <td style={{ fontWeight: 600 }}>{t.school.name}</td>
+                    <td>{t.subject}</td>
+                    <td className="muted">{t.createdBy.firstName} {t.createdBy.lastName}</td>
+                    <td><Badge tone={t.priority === 'URGENT' || t.priority === 'HIGH' ? 'red' : 'gray'}>{t.priority}</Badge></td>
+                    <td><Badge tone={statusTone(t.status)}>{t.status.replace(/_/g, ' ')}</Badge></td>
+                    <td className="muted">{dateStr(t.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

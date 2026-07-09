@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Badge, Field, Modal, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface Ticket {
   id: string;
@@ -22,9 +23,11 @@ export default function SupportPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [openTicket, setOpenTicket] = useState<TicketDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api<Ticket[]>('/api/support/tickets').then(setTickets).catch(() => {});
+    setLoading(true);
+    api<Ticket[]>('/api/support/tickets').then(setTickets).catch(() => {}).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -35,26 +38,39 @@ export default function SupportPage() {
   return (
     <>
       <div className="topbar">
-        <h1>Support</h1>
-        <button className="btn" onClick={() => setShowCreate(true)}>+ New ticket</button>
+        <h1>Help &amp; Support</h1>
+        <button className="btn icon-btn" onClick={() => setShowCreate(true)}>
+          <Icon name="add" size={16} />
+          New ticket
+        </button>
       </div>
       <div className="content">
         <div className="card">
-          <table className="table">
-            <thead><tr><th>Subject</th><th>Priority</th><th>Status</th><th>Messages</th><th>Opened</th></tr></thead>
-            <tbody>
-              {tickets.map((t) => (
-                <tr key={t.id} className="clickable" onClick={() => openDetail(t.id)}>
-                  <td style={{ fontWeight: 600 }}>{t.subject}</td>
-                  <td><Badge tone={t.priority === 'URGENT' || t.priority === 'HIGH' ? 'red' : 'gray'}>{t.priority}</Badge></td>
-                  <td><Badge tone={statusTone(t.status)}>{t.status.replace(/_/g, ' ')}</Badge></td>
-                  <td>{t._count?.messages ?? 0}</td>
-                  <td className="muted">{dateStr(t.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {tickets.length === 0 && <div className="empty">No support tickets. Need help? Open one.</div>}
+          {loading ? (
+            <TableSkeleton rows={4} cols={5} />
+          ) : tickets.length === 0 ? (
+            <EmptyState
+              icon="support"
+              title="No support tickets."
+              hint="Open a ticket and our support team will get back to you."
+              action={{ label: 'New ticket', onClick: () => setShowCreate(true) }}
+            />
+          ) : (
+            <table className="table">
+              <thead><tr><th>Subject</th><th>Priority</th><th>Status</th><th>Messages</th><th>Opened</th></tr></thead>
+              <tbody>
+                {tickets.map((t) => (
+                  <tr key={t.id} className="clickable" onClick={() => openDetail(t.id)}>
+                    <td style={{ fontWeight: 600 }}>{t.subject}</td>
+                    <td><Badge tone={t.priority === 'URGENT' || t.priority === 'HIGH' ? 'red' : 'gray'}>{t.priority}</Badge></td>
+                    <td><Badge tone={statusTone(t.status)}>{t.status.replace(/_/g, ' ')}</Badge></td>
+                    <td>{t._count?.messages ?? 0}</td>
+                    <td className="muted">{dateStr(t.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

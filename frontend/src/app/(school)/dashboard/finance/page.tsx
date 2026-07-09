@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, Stat, dateStr, money, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, Stat, StatSkeleton, TableSkeleton, dateStr, money, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface ClassItem { id: string; name: string }
 interface TermItem { id: string; name: string; year: number; isActive: boolean }
@@ -52,11 +53,14 @@ function Payments({ canWrite }: { canWrite: boolean }) {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [showRecord, setShowRecord] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
+    setLoading(true);
     api<{ items: PaymentRow[]; total: number; totalAmount: string | number }>('/api/finance/payments', { query: { search, pageSize: 50 } })
       .then((d) => { setRows(d.items); setTotal(d.total); setTotalAmount(Number(d.totalAmount)); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [search]);
 
   useEffect(() => { load(); }, [load]);
@@ -67,28 +71,51 @@ function Payments({ canWrite }: { canWrite: boolean }) {
         <input placeholder="Search receipt, reference or student…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 300 }} />
         <div className="spacer" />
         <span className="muted">{total} payments · {money(totalAmount)}</span>
-        {canWrite && <button className="btn" onClick={() => setShowRecord(true)}>+ Record payment</button>}
+        {canWrite && (
+          <button className="btn icon-btn" onClick={() => setShowRecord(true)}>
+            <Icon name="add" size={16} />
+            Record payment
+          </button>
+        )}
       </div>
       <div className="card">
-        <table className="table">
-          <thead><tr><th>Receipt</th><th>Student</th><th>Amount</th><th>Method</th><th>Reference</th><th>Date</th></tr></thead>
-          <tbody>
-            {rows.map((p) => (
-              <tr key={p.id}>
-                <td style={{ fontWeight: 600 }}>{p.receiptNumber}</td>
-                <td>{p.student.firstName} {p.student.lastName} <span className="muted">({p.student.admissionNumber})</span></td>
-                <td>{money(Number(p.amount))}</td>
-                <td><Badge tone="blue">{p.paymentMethod.replace(/_/g, ' ')}</Badge></td>
-                <td className="muted">{p.referenceNumber ?? '—'}</td>
-                <td className="muted">{dateStr(p.paymentDate)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {rows.length === 0 && <div className="empty">No payments recorded yet.</div>}
-        <p className="muted" style={{ marginTop: 10 }}>
-          Payments are immutable — corrections are made via adjustments, never edits or deletions.
-        </p>
+        {loading ? (
+          <TableSkeleton rows={6} cols={6} />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon="finance"
+            title={search ? 'No payments match your search.' : 'No payments recorded yet.'}
+            hint={
+              search
+                ? 'Try a different receipt number, reference, or student name.'
+                : canWrite
+                  ? 'Record a payment to issue a receipt and update the student’s balance.'
+                  : undefined
+            }
+            action={canWrite && !search ? { label: 'Record payment', onClick: () => setShowRecord(true) } : undefined}
+          />
+        ) : (
+          <>
+            <table className="table">
+              <thead><tr><th>Receipt</th><th>Student</th><th>Amount</th><th>Method</th><th>Reference</th><th>Date</th></tr></thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 600 }}>{p.receiptNumber}</td>
+                    <td>{p.student.firstName} {p.student.lastName} <span className="muted">({p.student.admissionNumber})</span></td>
+                    <td>{money(Number(p.amount))}</td>
+                    <td><Badge tone="blue">{p.paymentMethod.replace(/_/g, ' ')}</Badge></td>
+                    <td className="muted">{p.referenceNumber ?? '—'}</td>
+                    <td className="muted">{dateStr(p.paymentDate)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="muted" style={{ marginTop: 10 }}>
+              Payments are immutable — corrections are made via adjustments, never edits or deletions.
+            </p>
+          </>
+        )}
       </div>
       <RecordPaymentModal open={showRecord} onClose={() => setShowRecord(false)} onSaved={load} />
     </>
@@ -173,13 +200,16 @@ function Balances({ terms, classes }: { terms: TermItem[]; classes: ClassItem[] 
   const [classId, setClassId] = useState('');
   const [data, setData] = useState<{ term: { name: string; year: number }; totals: { expected: number; paid: number; outstanding: number }; balances: BalanceRow[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const effectiveTerm = termId || active?.id;
-    if (!effectiveTerm) return;
+    if (!effectiveTerm) { setLoading(false); return; }
+    setLoading(true);
     api<typeof data>('/api/finance/balances', { query: { termId: effectiveTerm, classId } })
       .then((d) => { setData(d); setError(null); })
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
   }, [termId, classId, active?.id]);
 
   return (
@@ -195,7 +225,12 @@ function Balances({ terms, classes }: { terms: TermItem[]; classes: ClassItem[] 
         </select>
       </div>
       {error && <p className="error-text">{error}</p>}
-      {data && (
+      {loading && !data ? (
+        <>
+          <StatSkeleton count={3} />
+          <div className="card"><TableSkeleton rows={6} cols={5} /></div>
+        </>
+      ) : data ? (
         <>
           <div className="grid grid-4">
             <Stat label="Expected" value={money(data.totals.expected)} />
@@ -203,26 +238,33 @@ function Balances({ terms, classes }: { terms: TermItem[]; classes: ClassItem[] 
             <Stat label="Outstanding" value={money(data.totals.outstanding)} />
           </div>
           <div className="card">
-            <table className="table">
-              <thead><tr><th>Student</th><th>Class</th><th>Expected</th><th>Paid</th><th>Balance</th></tr></thead>
-              <tbody>
-                {data.balances.map((b) => (
-                  <tr key={b.student.id}>
-                    <td style={{ fontWeight: 600 }}>{b.student.name} <span className="muted">({b.student.admissionNumber})</span></td>
-                    <td>{b.student.class ?? '—'}</td>
-                    <td>{money(b.expected)}</td>
-                    <td>{money(b.paid)}</td>
-                    <td style={{ color: b.balance > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
-                      {money(b.balance)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {data.balances.length === 0 && <div className="empty">No active students found.</div>}
+            {data.balances.length === 0 ? (
+              <EmptyState
+                icon="students"
+                title="No active students for this term."
+                hint="Register students and set a fee structure to track outstanding balances."
+              />
+            ) : (
+              <table className="table">
+                <thead><tr><th>Student</th><th>Class</th><th>Expected</th><th>Paid</th><th>Balance</th></tr></thead>
+                <tbody>
+                  {data.balances.map((b) => (
+                    <tr key={b.student.id}>
+                      <td style={{ fontWeight: 600 }}>{b.student.name} <span className="muted">({b.student.admissionNumber})</span></td>
+                      <td>{b.student.class ?? '—'}</td>
+                      <td>{money(b.expected)}</td>
+                      <td>{money(b.paid)}</td>
+                      <td style={{ color: b.balance > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
+                        {money(b.balance)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
-      )}
+      ) : null}
     </>
   );
 }
@@ -230,9 +272,11 @@ function Balances({ terms, classes }: { terms: TermItem[]; classes: ClassItem[] 
 function FeeStructures({ terms, classes, canWrite }: { terms: TermItem[]; classes: ClassItem[]; canWrite: boolean }) {
   const [rows, setRows] = useState<FeeStructure[]>([]);
   const [showSet, setShowSet] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api<FeeStructure[]>('/api/finance/fee-structures').then(setRows).catch(() => {});
+    setLoading(true);
+    api<FeeStructure[]>('/api/finance/fee-structures').then(setRows).catch(() => {}).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -240,23 +284,38 @@ function FeeStructures({ terms, classes, canWrite }: { terms: TermItem[]; classe
     <>
       <div className="toolbar">
         <div className="spacer" />
-        {canWrite && <button className="btn" onClick={() => setShowSet(true)}>+ Set fee structure</button>}
+        {canWrite && (
+          <button className="btn icon-btn" onClick={() => setShowSet(true)}>
+            <Icon name="add" size={16} />
+            Set fee structure
+          </button>
+        )}
       </div>
       <div className="card">
-        <table className="table">
-          <thead><tr><th>Class</th><th>Term</th><th>Amount</th><th>Description</th></tr></thead>
-          <tbody>
-            {rows.map((f) => (
-              <tr key={f.id}>
-                <td style={{ fontWeight: 600 }}>{f.class.name}</td>
-                <td>{f.term.name.replace(/_/g, ' ')} {f.term.year}</td>
-                <td>{money(Number(f.amount))}</td>
-                <td className="muted">{f.description ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {rows.length === 0 && <div className="empty">No fee structures set.</div>}
+        {loading ? (
+          <TableSkeleton rows={5} cols={4} />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon="finance"
+            title="No fee structures set."
+            hint={canWrite ? 'Define the fees payable per class and term so balances can be tracked.' : undefined}
+            action={canWrite ? { label: 'Set fee structure', onClick: () => setShowSet(true) } : undefined}
+          />
+        ) : (
+          <table className="table">
+            <thead><tr><th>Class</th><th>Term</th><th>Amount</th><th>Description</th></tr></thead>
+            <tbody>
+              {rows.map((f) => (
+                <tr key={f.id}>
+                  <td style={{ fontWeight: 600 }}>{f.class.name}</td>
+                  <td>{f.term.name.replace(/_/g, ' ')} {f.term.year}</td>
+                  <td>{money(Number(f.amount))}</td>
+                  <td className="muted">{f.description ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
       <SetFeeModal open={showSet} onClose={() => setShowSet(false)} onSaved={load} terms={terms} classes={classes} />
     </>
