@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Stat, dateStr, statusTone } from '@/components/ui';
+import { Badge, Stat, StatSkeleton, dateStr, statusTone } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface Paged<T> {
   items: T[];
@@ -17,34 +18,45 @@ export default function DashboardPage() {
   const [classes, setClasses] = useState<number | null>(null);
   const [outstanding, setOutstanding] = useState<string | null>(null);
   const [announcements, setAnnouncements] = useState<Array<{ id: string; title: string; body: string; publishedAt: string | null; audience: string }>>([]);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
+    const jobs: Promise<unknown>[] = [];
     if (hasFeature('STUDENTS')) {
-      api<Paged<unknown>>('/api/students', { query: { pageSize: 1, status: 'ACTIVE' } })
-        .then((d) => setStudents(d.total))
-        .catch(() => setStudents(null));
+      jobs.push(
+        api<Paged<unknown>>('/api/students', { query: { pageSize: 1, status: 'ACTIVE' } })
+          .then((d) => setStudents(d.total))
+          .catch(() => setStudents(null))
+      );
     }
     if (hasFeature('TEACHERS')) {
-      api<Paged<unknown>>('/api/teachers', { query: { pageSize: 1, status: 'ACTIVE' } })
-        .then((d) => setTeachers(d.total))
-        .catch(() => setTeachers(null));
+      jobs.push(
+        api<Paged<unknown>>('/api/teachers', { query: { pageSize: 1, status: 'ACTIVE' } })
+          .then((d) => setTeachers(d.total))
+          .catch(() => setTeachers(null))
+      );
     }
     if (hasFeature('ACADEMICS')) {
-      api<unknown[]>('/api/academics/classes')
-        .then((d) => setClasses(d.length))
-        .catch(() => setClasses(null));
+      jobs.push(
+        api<unknown[]>('/api/academics/classes')
+          .then((d) => setClasses(d.length))
+          .catch(() => setClasses(null))
+      );
     }
     if (hasFeature('FEES') && ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PROPRIETOR', 'BURSAR', 'SECRETARY'].includes(user.role)) {
-      api<{ totals: { outstanding: number } }>('/api/finance/balances')
-        .then((d) => setOutstanding(`UGX ${d.totals.outstanding.toLocaleString()}`))
-        .catch(() => setOutstanding(null));
+      jobs.push(
+        api<{ totals: { outstanding: number } }>('/api/finance/balances')
+          .then((d) => setOutstanding(`UGX ${d.totals.outstanding.toLocaleString()}`))
+          .catch(() => setOutstanding(null))
+      );
     }
     if (hasFeature('ANNOUNCEMENTS')) {
       api<Array<{ id: string; title: string; body: string; publishedAt: string | null; audience: string }>>('/api/announcements')
         .then(setAnnouncements)
         .catch(() => setAnnouncements([]));
     }
+    Promise.allSettled(jobs).then(() => setStatsLoading(false));
   }, [user, hasFeature]);
 
   return (
@@ -54,12 +66,16 @@ export default function DashboardPage() {
         <span className="muted">{school?.name}</span>
       </div>
       <div className="content">
-        <div className="grid grid-4">
-          {hasFeature('STUDENTS') && <Stat label="Active Students" value={students ?? '—'} />}
-          {hasFeature('TEACHERS') && <Stat label="Active Teachers" value={teachers ?? '—'} />}
-          {hasFeature('ACADEMICS') && <Stat label="Classes" value={classes ?? '—'} />}
-          {outstanding !== null && <Stat label="Outstanding Fees" value={outstanding} />}
-        </div>
+        {statsLoading ? (
+          <StatSkeleton count={4} />
+        ) : (
+          <div className="grid grid-4">
+            {hasFeature('STUDENTS') && <Stat label="Active Students" value={students ?? '—'} />}
+            {hasFeature('TEACHERS') && <Stat label="Active Teachers" value={teachers ?? '—'} />}
+            {hasFeature('ACADEMICS') && <Stat label="Classes" value={classes ?? '—'} />}
+            {outstanding !== null && <Stat label="Outstanding Fees" value={outstanding} />}
+          </div>
+        )}
 
         {hasFeature('ANNOUNCEMENTS') && (
           <div className="card">
@@ -93,7 +109,10 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {Object.entries(features).map(([key, enabled]) => (
                 <Badge key={key} tone={enabled ? 'green' : 'gray'}>
-                  {enabled ? '✓' : '🔒'} {key.replace(/_/g, ' ')}
+                  <span className="badge-icon">
+                    <Icon name={enabled ? 'check' : 'lock'} size={12} strokeWidth={2.5} />
+                    {key.replace(/_/g, ' ')}
+                  </span>
                 </Badge>
               ))}
             </div>

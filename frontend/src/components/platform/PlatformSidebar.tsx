@@ -3,16 +3,17 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { Icon, IconName } from '@/components/icons';
 
 /**
  * Application A navigation — the Natural Intellects Control Center.
  * Permanently Natural Intellects branded; never rendered to school users.
  */
-const NAV = [
-  { href: '/admin', label: 'Overview', icon: '▦' },
-  { href: '/admin/schools', label: 'Schools', icon: '🏫' },
-  { href: '/admin/tickets', label: 'Support Tickets', icon: '🎧' },
-  { href: '/admin/activity', label: 'Activity Logs', icon: '🗒' },
+const NAV: Array<{ href: string; label: string; icon: IconName }> = [
+  { href: '/admin', label: 'Overview', icon: 'dashboard' },
+  { href: '/admin/schools', label: 'Schools', icon: 'schools' },
+  { href: '/admin/tickets', label: 'Support Tickets', icon: 'tickets' },
+  { href: '/admin/activity', label: 'Activity Logs', icon: 'activity' },
 ];
 
 export function PlatformSidebar() {
@@ -31,7 +32,8 @@ export function PlatformSidebar() {
           const active = item.href === pathname || (item.href !== '/admin' && pathname.startsWith(item.href));
           return (
             <Link key={item.href} href={item.href} className={active ? 'active' : ''}>
-              {item.icon} <span>{item.label}</span>
+              <Icon name={item.icon} />
+              <span>{item.label}</span>
             </Link>
           );
         })}

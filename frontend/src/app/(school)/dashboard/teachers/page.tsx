@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Badge, Field, Modal, statusTone, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface TeacherRow {
   id: string;
@@ -73,8 +74,13 @@ export default function TeachersPage() {
                   <td>{t.subjects.map((s) => s.subject.name).join(', ') || '—'}</td>
                   <td>
                     {t.classes.map((c) => (
-                      <span key={c.id} style={{ marginRight: 6 }}>
-                        {c.class.name}{c.isClassTeacher ? '★' : ''}
+                      <span key={c.id} className="class-chip">
+                        {c.class.name}
+                        {c.isClassTeacher && (
+                          <span className="class-teacher-mark" title="Class teacher">
+                            <Icon name="classTeacher" size={12} strokeWidth={2.5} />
+                          </span>
+                        )}
                       </span>
                     ))}
                     {t.classes.length === 0 && '—'}
@@ -215,7 +221,7 @@ function AssignModal({
           </Field>
           <Field label="Class teacher?">
             <select value={isClassTeacher ? 'yes' : 'no'} onChange={(e) => setIsClassTeacher(e.target.value === 'yes')}>
-              <option value="no">No</option><option value="yes">Yes ★</option>
+              <option value="no">No</option><option value="yes">Yes — class teacher</option>
             </select>
           </Field>
         </div>

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Badge, Field, Modal, Stat, Toggle, dateStr, money, statusTone, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface SchoolDetail {
   id: string;
@@ -69,9 +70,13 @@ export default function AdminSchoolDetailPage() {
           {school.name} <Badge tone={statusTone(school.status)}>{school.status}</Badge>
         </h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn secondary small" onClick={() => router.push('/admin/schools')}>← Back</button>
-          <button className="btn secondary small" onClick={() => enterSchoolContext(school.id)}>
-            Open school workspace →
+          <button className="btn secondary small icon-btn" onClick={() => router.push('/admin/schools')}>
+            <Icon name="back" size={15} />
+            Back
+          </button>
+          <button className="btn secondary small icon-btn" onClick={() => enterSchoolContext(school.id)}>
+            Open school workspace
+            <Icon name="next" size={15} />
           </button>
           {isSuper && school.status !== 'SUSPENDED' && (
             <button className="btn danger small" onClick={() => void changeStatus('SUSPENDED')}>Suspend</button>

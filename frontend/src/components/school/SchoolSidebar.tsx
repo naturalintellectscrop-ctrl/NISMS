@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, Role } from '@/lib/auth';
+import { Icon, IconName } from '@/components/icons';
 
 /**
  * Application B navigation. School staff only see their school's modules —
@@ -12,35 +13,35 @@ import { useAuth, Role } from '@/lib/auth';
 interface NavItem {
   href: string;
   label: string;
-  icon: string;
+  icon: IconName;
   feature?: string;
   roles?: Role[];
 }
 
 const NAV: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: '▦' },
-  { href: '/dashboard/students', label: 'Students', icon: '🎓', feature: 'STUDENTS' },
-  { href: '/dashboard/teachers', label: 'Teachers', icon: '👤', feature: 'TEACHERS' },
-  { href: '/dashboard/academics', label: 'Academics', icon: '📚', feature: 'ACADEMICS' },
-  { href: '/dashboard/attendance', label: 'Attendance', icon: '✓', feature: 'ATTENDANCE' },
-  { href: '/dashboard/exams', label: 'Exams & Reports', icon: '📝', feature: 'ACADEMICS' },
+  { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { href: '/dashboard/students', label: 'Students', icon: 'students', feature: 'STUDENTS' },
+  { href: '/dashboard/teachers', label: 'Teachers', icon: 'teachers', feature: 'TEACHERS' },
+  { href: '/dashboard/academics', label: 'Academics', icon: 'academics', feature: 'ACADEMICS' },
+  { href: '/dashboard/attendance', label: 'Attendance', icon: 'attendance', feature: 'ATTENDANCE' },
+  { href: '/dashboard/exams', label: 'Exams & Reports', icon: 'exams', feature: 'ACADEMICS' },
   {
     href: '/dashboard/finance',
     label: 'Finance',
-    icon: '💰',
+    icon: 'finance',
     feature: 'FEES',
     roles: ['SCHOOL_ADMIN', 'PROPRIETOR', 'BURSAR', 'SECRETARY'],
   },
-  { href: '/dashboard/announcements', label: 'Announcements', icon: '📢', feature: 'ANNOUNCEMENTS' },
+  { href: '/dashboard/announcements', label: 'Announcements', icon: 'announcements', feature: 'ANNOUNCEMENTS' },
   {
     href: '/dashboard/cms',
     label: 'Website',
-    icon: '🌐',
+    icon: 'website',
     feature: 'WEBSITE',
     roles: ['SCHOOL_ADMIN', 'SECRETARY', 'PROPRIETOR', 'HEAD_TEACHER'],
   },
-  { href: '/dashboard/support', label: 'Help & Support', icon: '🎧' },
-  { href: '/dashboard/settings', label: 'Settings', icon: '⚙', roles: ['SCHOOL_ADMIN', 'PROPRIETOR'] },
+  { href: '/dashboard/support', label: 'Help & Support', icon: 'support' },
+  { href: '/dashboard/settings', label: 'Settings', icon: 'settings', roles: ['SCHOOL_ADMIN', 'PROPRIETOR'] },
 ];
 
 export function SchoolSidebar() {
@@ -71,7 +72,8 @@ export function SchoolSidebar() {
           const active = item.href === pathname || (item.href !== '/dashboard' && pathname.startsWith(item.href));
           return (
             <Link key={item.href} href={item.href} className={active ? 'active' : ''}>
-              {item.icon} <span>{item.label}</span>
+              <Icon name={item.icon} />
+              <span>{item.label}</span>
             </Link>
           );
         })}

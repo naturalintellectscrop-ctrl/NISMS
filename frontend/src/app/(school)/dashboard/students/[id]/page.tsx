@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Badge, Field, Modal, Stat, dateStr, money, statusTone, useSubmit } from '@/components/ui';
+import { Icon } from '@/components/icons';
 
 interface StudentProfile {
   id: string;
@@ -60,8 +61,9 @@ export default function StudentProfilePage() {
           {name} <Badge tone={statusTone(student.status)}>{student.status}</Badge>
         </h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn secondary small" onClick={() => router.push('/dashboard/students')}>
-            ← Back
+          <button className="btn secondary small icon-btn" onClick={() => router.push('/dashboard/students')}>
+            <Icon name="back" size={15} />
+            Back
           </button>
           {canWrite && student.status === 'ACTIVE' && (
             <button className="btn danger small" onClick={() => setShowArchive(true)}>

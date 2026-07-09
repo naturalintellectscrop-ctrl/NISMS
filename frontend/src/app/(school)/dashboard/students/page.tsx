@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, Pagination, TableSkeleton, statusTone, useSubmit } from '@/components/ui';
 
 interface ClassItem {
   id: string;
@@ -35,8 +35,10 @@ export default function StudentsPage() {
   const [status, setStatus] = useState('ACTIVE');
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
+    setLoading(true);
     api<{ items: StudentRow[]; total: number }>('/api/students', {
       query: { search, classId, status, page, pageSize: 20 },
     })
@@ -44,7 +46,8 @@ export default function StudentsPage() {
         setRows(d.items);
         setTotal(d.total);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [search, classId, status, page]);
 
   useEffect(() => {
@@ -87,47 +90,53 @@ export default function StudentsPage() {
         </div>
 
         <div className="card">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Admission No</th>
-                <th>Name</th>
-                <th>Gender</th>
-                <th>Class</th>
-                <th>Stream</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s) => (
-                <tr key={s.id} className="clickable" onClick={() => router.push(`/dashboard/students/${s.id}`)}>
-                  <td>{s.admissionNumber}</td>
-                  <td style={{ fontWeight: 600 }}>
-                    {s.firstName} {s.middleName ?? ''} {s.lastName}
-                  </td>
-                  <td>{s.gender}</td>
-                  <td>{s.class?.name ?? '—'}</td>
-                  <td>{s.stream?.name ?? '—'}</td>
-                  <td>
-                    <Badge tone={statusTone(s.status)}>{s.status}</Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {rows.length === 0 && <div className="empty">No students found.</div>}
-          {total > 20 && (
-            <div className="toolbar" style={{ marginTop: 12 }}>
-              <button className="btn secondary small" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                ← Prev
-              </button>
-              <span className="muted">
-                Page {page} of {Math.ceil(total / 20)}
-              </span>
-              <button className="btn secondary small" disabled={page >= Math.ceil(total / 20)} onClick={() => setPage((p) => p + 1)}>
-                Next →
-              </button>
-            </div>
+          {loading ? (
+            <TableSkeleton rows={8} cols={6} />
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon="students"
+              title={search || classId || status !== 'ACTIVE' ? 'No students match these filters.' : 'No students have been registered yet.'}
+              hint={
+                search || classId || status !== 'ACTIVE'
+                  ? 'Try adjusting or clearing the filters above.'
+                  : canWrite
+                    ? 'Register your first student to begin building your school records.'
+                    : undefined
+              }
+              action={canWrite && !(search || classId || status !== 'ACTIVE') ? { label: 'Register student', onClick: () => setShowCreate(true) } : undefined}
+            />
+          ) : (
+            <>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Admission No</th>
+                    <th>Name</th>
+                    <th>Gender</th>
+                    <th>Class</th>
+                    <th>Stream</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((s) => (
+                    <tr key={s.id} className="clickable" onClick={() => router.push(`/dashboard/students/${s.id}`)}>
+                      <td>{s.admissionNumber}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {s.firstName} {s.middleName ?? ''} {s.lastName}
+                      </td>
+                      <td>{s.gender}</td>
+                      <td>{s.class?.name ?? '—'}</td>
+                      <td>{s.stream?.name ?? '—'}</td>
+                      <td>
+                        <Badge tone={statusTone(s.status)}>{s.status}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Pagination page={page} totalPages={Math.ceil(total / 20)} onPage={setPage} />
+            </>
           )}
         </div>
       </div>

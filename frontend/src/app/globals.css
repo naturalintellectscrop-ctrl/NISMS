@@ -87,6 +87,17 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+  color: #cbd5e1;
+}
+
+.sidebar nav a svg {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.sidebar nav a:hover svg,
+.sidebar nav a.active svg {
+  color: #fff;
 }
 
 .sidebar nav a:hover {
@@ -237,6 +248,16 @@ a {
   font-size: 12.5px;
 }
 
+.btn.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn svg {
+  flex-shrink: 0;
+}
+
 table.table {
   width: 100%;
   border-collapse: collapse;
@@ -274,6 +295,32 @@ table.table {
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 600;
+}
+
+.badge-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-icon svg {
+  flex-shrink: 0;
+}
+
+.class-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 8px;
+}
+
+.class-teacher-mark {
+  display: inline-flex;
+  color: var(--warning);
+}
+
+.class-teacher-mark svg {
+  fill: currentColor;
 }
 
 .badge.green {
@@ -522,6 +569,88 @@ table.table {
   font-size: 13.5px;
 }
 
+/* ---------- empty state ---------- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.empty-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.empty-state-title {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.empty-state .btn {
+  margin-top: 8px;
+}
+
+/* ---------- skeleton loaders ---------- */
+.skeleton {
+  display: block;
+  height: 14px;
+  width: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #eef2f7 25%, #e2e8f0 37%, #eef2f7 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-sm {
+  height: 11px;
+  width: 55%;
+  margin-bottom: 10px;
+}
+
+.skeleton-lg {
+  height: 22px;
+  width: 70%;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* ---------- pagination ---------- */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pagination .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .lock-note {
   background: #fffbeb;
   border: 1px solid #fde68a;
@@ -540,5 +669,9 @@ table.table {
   .sidebar nav .nav-section,
   .sidebar-footer {
     display: none;
+  }
+  .sidebar nav a {
+    justify-content: center;
+    padding: 10px 0;
   }
 }

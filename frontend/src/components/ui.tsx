@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
+import { Icon, IconName } from '@/components/icons';
 
 export function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -130,6 +131,91 @@ export function useSubmit(action: () => Promise<void>) {
     }
   };
   return { busy, error, submit, setError };
+}
+
+/**
+ * Empty state: explains why nothing is shown and offers the next action
+ * (design standard — every empty page provides a clear action).
+ */
+export function EmptyState({
+  title,
+  hint,
+  icon = 'empty',
+  action,
+}: {
+  title: string;
+  hint?: string;
+  icon?: IconName;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="empty-state">
+      <span className="empty-state-icon">
+        <Icon name={icon} size={26} strokeWidth={1.75} />
+      </span>
+      <p className="empty-state-title">{title}</p>
+      {hint && <p className="muted">{hint}</p>}
+      {action && (
+        <button type="button" className="btn" onClick={action.onClick}>
+          <Icon name="add" size={16} />
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Skeleton placeholder rows for tables while data loads (no blank pages). */
+export function TableSkeleton({ rows = 6, cols = 4 }: { rows?: number; cols?: number }) {
+  return (
+    <table className="table" aria-hidden="true">
+      <tbody>
+        {Array.from({ length: rows }).map((_, r) => (
+          <tr key={r}>
+            {Array.from({ length: cols }).map((__, c) => (
+              <td key={c}>
+                <span className="skeleton" />
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** Skeleton grid for the stat row on dashboards. */
+export function StatSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="grid grid-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="stat">
+          <span className="skeleton skeleton-sm" />
+          <span className="skeleton skeleton-lg" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Consistent pagination control used across list screens. */
+export function Pagination({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="pagination">
+      <button type="button" className="btn secondary small" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+        <Icon name="prev" size={15} />
+        Previous
+      </button>
+      <span className="muted">
+        Page {page} of {totalPages}
+      </span>
+      <button type="button" className="btn secondary small" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>
+        Next
+        <Icon name="next" size={15} />
+      </button>
+    </div>
+  );
 }
 
 export function money(amount: number | string, currency = 'UGX'): string {
