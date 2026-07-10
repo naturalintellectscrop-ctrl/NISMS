@@ -1,13 +1,20 @@
 import type { Metadata } from 'next';
-import { Montserrat } from 'next/font/google';
+import { Manrope, Montserrat } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth';
 
 // Self-hosted by Next.js — no external request, no layout shift.
+// Montserrat = primary/display (headings, brand); Manrope = secondary (body/UI).
 const montserrat = Montserrat({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-montserrat',
+});
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-manrope',
 });
 
 export const metadata: Metadata = {
@@ -17,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={montserrat.variable}>
+    <html lang="en" className={`${montserrat.variable} ${manrope.variable}`}>
       <body>
         <AuthProvider>{children}</AuthProvider>
       </body>
