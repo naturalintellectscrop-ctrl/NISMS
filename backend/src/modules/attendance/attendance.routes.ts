@@ -109,6 +109,40 @@ router.get(
   })
 );
 
+/**
+ * GET /api/attendance/pending?date= — classes whose register has not been
+ * taken for a date. Drives the "needs attention" list on the school's home
+ * screen; a class counts as taken once any of its students has a record.
+ */
+router.get(
+  '/pending',
+  requireRoles(...READ),
+  asyncHandler(async (req, res) => {
+    const date = toDay(req.query.date ? new Date(req.query.date as string) : new Date());
+
+    const [classes, markedClasses] = await Promise.all([
+      prisma.class.findMany({
+        where: { schoolId: req.schoolId! },
+        select: { id: true, name: true, _count: { select: { students: { where: { status: 'ACTIVE' } } } } },
+        orderBy: { level: 'asc' },
+      }),
+      prisma.student.findMany({
+        where: { schoolId: req.schoolId!, status: 'ACTIVE', attendance: { some: { date } } },
+        select: { classId: true },
+        distinct: ['classId'],
+      }),
+    ]);
+
+    const taken = new Set(markedClasses.map((s) => s.classId));
+    // Only classes that actually have students to register are "pending".
+    const pending = classes
+      .filter((c) => c._count.students > 0 && !taken.has(c.id))
+      .map((c) => ({ id: c.id, name: c.name, students: c._count.students }));
+
+    res.json({ date, pending, totalClasses: classes.filter((c) => c._count.students > 0).length });
+  })
+);
+
 /** GET /api/attendance/summary?classId=&from=&to= — daily/weekly/monthly report. */
 router.get(
   '/summary',

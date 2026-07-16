@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, Stat, Toggle, dateStr, money, statusTone, useSubmit } from '@/components/ui';
+import { Badge, Field, Modal, Stat, StatSkeleton, TableSkeleton, Toggle, dateStr, money, statusTone, useSubmit } from '@/components/ui';
 import { Icon } from '@/components/icons';
 
 interface SchoolDetail {
@@ -46,7 +46,17 @@ export default function AdminSchoolDetailPage() {
   useEffect(() => { load(); }, [load]);
 
   if (error) return <div className="content"><p className="error-text">{error}</p></div>;
-  if (!school) return <div className="empty">Loading…</div>;
+  if (!school) {
+    return (
+      <>
+        <div className="topbar"><h1>School</h1></div>
+        <div className="page-loading">
+          <StatSkeleton count={4} />
+          <div className="card"><TableSkeleton rows={5} cols={2} /></div>
+        </div>
+      </>
+    );
+  }
 
   const toggleFeature = async (featureKey: string, isEnabled: boolean) => {
     await api(`/api/admin/schools/${school.id}/features`, { method: 'POST', body: { featureKey, isEnabled } });

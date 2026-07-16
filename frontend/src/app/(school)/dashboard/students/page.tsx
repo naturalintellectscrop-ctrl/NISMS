@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, EmptyState, Field, Modal, Pagination, TableSkeleton, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, Pagination, TableSkeleton, openableRow, statusTone, useSubmit } from '@/components/ui';
 import { Icon } from '@/components/icons';
 
 interface ClassItem {
@@ -122,7 +122,13 @@ export default function StudentsPage() {
                 </thead>
                 <tbody>
                   {rows.map((s) => (
-                    <tr key={s.id} className="clickable" onClick={() => router.push(`/dashboard/students/${s.id}`)}>
+                    <tr
+                      key={s.id}
+                      {...openableRow(
+                        () => router.push(`/dashboard/students/${s.id}`),
+                        `Open ${s.firstName} ${s.lastName}`
+                      )}
+                    >
                       <td>{s.admissionNumber}</td>
                       <td style={{ fontWeight: 600 }}>
                         {s.firstName} {s.middleName ?? ''} {s.lastName}

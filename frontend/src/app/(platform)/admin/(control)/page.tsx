@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Badge, Stat, dateStr, money, statusTone } from '@/components/ui';
+import { Badge, Stat, StatSkeleton, TableSkeleton, dateStr, money, statusTone } from '@/components/ui';
 
 interface Analytics {
   schools: { byStatus: Record<string, number>; byPlan: Record<string, number> };
@@ -21,7 +21,17 @@ export default function AdminOverviewPage() {
   }, []);
 
   if (error) return <div className="content"><p className="error-text">{error}</p></div>;
-  if (!data) return <div className="empty">Loading analytics…</div>;
+  if (!data) {
+    return (
+      <>
+        <div className="topbar"><h1>Overview</h1></div>
+        <div className="page-loading">
+          <StatSkeleton count={4} />
+          <div className="card"><TableSkeleton rows={5} cols={3} /></div>
+        </div>
+      </>
+    );
+  }
 
   const totalSchools = Object.values(data.schools.byStatus).reduce((a, b) => a + b, 0);
 

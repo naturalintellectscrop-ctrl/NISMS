@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PlatformSidebar } from '@/components/platform/PlatformSidebar';
+import { TableSkeleton } from '@/components/ui';
 import { useAuth, isPlatformUser } from '@/lib/auth';
 
 /**
@@ -20,8 +21,19 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     else if (!isPlatformUser(user)) router.replace('/dashboard');
   }, [user, loading, router]);
 
-  if (loading) return <div className="empty">Loading…</div>;
-  if (!user || !isPlatformUser(user)) return null;
+  if (loading || !user || !isPlatformUser(user)) {
+    return (
+      <div className="shell">
+        <aside className="sidebar" aria-hidden="true" />
+        <div className="main">
+          <div className="topbar" />
+          <div className="page-loading">
+            <div className="card"><TableSkeleton rows={5} cols={4} /></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="shell">

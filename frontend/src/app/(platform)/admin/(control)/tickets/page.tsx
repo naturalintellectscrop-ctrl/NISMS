@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, openableRow, statusTone, useSubmit } from '@/components/ui';
 
 interface Ticket {
   id: string;
@@ -60,7 +60,7 @@ export default function AdminTicketsPage() {
               <thead><tr><th>School</th><th>Subject</th><th>From</th><th>Priority</th><th>Status</th><th>Opened</th></tr></thead>
               <tbody>
                 {tickets.map((t) => (
-                  <tr key={t.id} className="clickable" onClick={() => openDetail(t.id)}>
+                  <tr key={t.id} {...openableRow(() => openDetail(t.id), `Open ticket from ${t.school.name}: ${t.subject}`)}>
                     <td style={{ fontWeight: 600 }}>{t.school.name}</td>
                     <td>{t.subject}</td>
                     <td className="muted">{t.createdBy.firstName} {t.createdBy.lastName}</td>

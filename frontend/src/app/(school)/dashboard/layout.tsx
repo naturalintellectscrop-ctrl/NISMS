@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SchoolSidebar } from '@/components/school/SchoolSidebar';
+import { TableSkeleton } from '@/components/ui';
 import { useAuth, isPlatformUser } from '@/lib/auth';
 import { getSchoolContext } from '@/lib/api';
 
@@ -42,9 +43,20 @@ export default function SchoolShell({ children }: { children: React.ReactNode })
     };
   }, [branding]);
 
-  if (loading) return <div className="empty">Loading…</div>;
-  if (!user) return null;
-  if (platform && !schoolContext) return <div className="empty">Opening school workspace…</div>;
+  // Hold the shell's shape while the session resolves — no blank page, no shift.
+  if (loading || !user || (platform && !schoolContext)) {
+    return (
+      <div className="shell">
+        <aside className="sidebar" aria-hidden="true" />
+        <div className="main">
+          <div className="topbar" />
+          <div className="page-loading">
+            <div className="card"><TableSkeleton rows={5} cols={4} /></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="shell">

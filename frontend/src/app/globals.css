@@ -397,6 +397,21 @@ table.table {
   border-color: var(--primary);
 }
 
+/* ---------- focus visibility (keyboard users must always know where they are) ---------- */
+:where(a, button, [role='button'], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.sidebar :where(a, button):focus-visible {
+  outline-color: #fff;
+}
+
+.table tr[role='button']:focus-visible {
+  outline-offset: -2px;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -583,6 +598,94 @@ table.table {
   font-size: 13.5px;
 }
 
+/* ---------- section headings ---------- */
+.section-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+/* ---------- needs-attention task list ---------- */
+.task-list {
+  padding: 0;
+}
+
+.task {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.task:last-child {
+  border-bottom: none;
+}
+
+.task-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.task-urgent .task-icon {
+  background: #fef3c7;
+  color: var(--warning);
+}
+
+.task-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.task .btn {
+  flex-shrink: 0;
+}
+
+/* ---------- roll figures (compact, not hero cards) ---------- */
+.roll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px;
+}
+
+.roll-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roll-value {
+  font-family: var(--font-montserrat), system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.roll-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.announcement-title {
+  font-weight: 600;
+  width: 28%;
+}
+
+.announcement-date {
+  width: 110px;
+  white-space: nowrap;
+}
+
 /* ---------- empty state ---------- */
 .empty-state {
   display: flex;
@@ -634,6 +737,23 @@ table.table {
 .skeleton-lg {
   height: 22px;
   width: 70%;
+}
+
+.skeleton-inline {
+  display: inline-block;
+  width: 44px;
+  height: 20px;
+  vertical-align: middle;
+}
+
+/* Page-level loading shell — keeps the layout stable while auth/data resolve. */
+.page-loading {
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1280px;
+  width: 100%;
 }
 
 @keyframes skeleton-shimmer {

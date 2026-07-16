@@ -50,11 +50,17 @@ export async function api<T = unknown>(
   const schoolContext = getSchoolContext();
   if (schoolContext) headers['x-school-context'] = schoolContext;
 
-  const res = await fetch(url.toString(), {
-    method: options.method ?? 'GET',
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      method: options.method ?? 'GET',
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    });
+  } catch {
+    // Network/DNS/offline: never surface "Failed to fetch" to a school user.
+    throw new ApiError(0, 'Could not reach the system. Check your internet connection and try again.');
+  }
 
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
@@ -65,7 +71,13 @@ export async function api<T = unknown>(
       const loginPath = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
       if (!window.location.pathname.endsWith('/login')) window.location.href = loginPath;
     }
-    throw new ApiError(res.status, (data as { error?: string }).error ?? 'Request failed', (data as { details?: unknown }).details);
+    const serverMessage = (data as { error?: string }).error;
+    // Server messages are written for users; only fall back when there is none.
+    const fallback =
+      res.status >= 500
+        ? 'The system could not complete that request. Please try again in a moment.'
+        : 'That request could not be completed.';
+    throw new ApiError(res.status, serverMessage ?? fallback, (data as { details?: unknown }).details);
   }
   return data as T;
 }

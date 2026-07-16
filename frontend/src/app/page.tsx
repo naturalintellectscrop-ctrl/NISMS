@@ -15,5 +15,6 @@ export default function Home() {
     else router.replace('/dashboard');
   }, [user, loading, router]);
 
-  return <div className="empty">Loading…</div>;
+  // Routing decision only — nothing to show, and no flash of placeholder text.
+  return null;
 }

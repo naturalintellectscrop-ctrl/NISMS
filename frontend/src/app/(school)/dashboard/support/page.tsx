@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, openableRow, statusTone, useSubmit } from '@/components/ui';
 import { Icon } from '@/components/icons';
 
 interface Ticket {
@@ -60,7 +60,7 @@ export default function SupportPage() {
               <thead><tr><th>Subject</th><th>Priority</th><th>Status</th><th>Messages</th><th>Opened</th></tr></thead>
               <tbody>
                 {tickets.map((t) => (
-                  <tr key={t.id} className="clickable" onClick={() => openDetail(t.id)}>
+                  <tr key={t.id} {...openableRow(() => openDetail(t.id), `Open ticket: ${t.subject}`)}>
                     <td style={{ fontWeight: 600 }}>{t.subject}</td>
                     <td><Badge tone={t.priority === 'URGENT' || t.priority === 'HIGH' ? 'red' : 'gray'}>{t.priority}</Badge></td>
                     <td><Badge tone={statusTone(t.status)}>{t.status.replace(/_/g, ' ')}</Badge></td>

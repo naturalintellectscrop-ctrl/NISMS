@@ -1,125 +1,257 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Stat, StatSkeleton, dateStr, statusTone } from '@/components/ui';
-import { Icon } from '@/components/icons';
+import { Skeleton, dateStr, money, termLabel } from '@/components/ui';
+import { Icon, IconName } from '@/components/icons';
 
-interface Paged<T> {
-  items: T[];
-  total: number;
+/**
+ * The school's home screen. This is deliberately not a statistics dashboard:
+ * it answers "what needs to be done today?" first, and only then reports the
+ * roll figures. Every item below is derived from the school's real records —
+ * nothing is shown unless it is true.
+ */
+
+interface Term { id: string; name: string; year: number; startDate: string; endDate: string; isActive: boolean }
+interface ClassItem { id: string; name: string; _count?: { students: number } }
+interface PendingAttendance { pending: Array<{ id: string; name: string; students: number }>; totalClasses: number }
+interface Balances { totals: { expected: number; paid: number; outstanding: number }; balances: Array<{ balance: number }> }
+interface Announcement { id: string; title: string; body: string; publishedAt: string | null; audience: string }
+
+interface Task {
+  id: string;
+  icon: IconName;
+  text: string;
+  actionLabel: string;
+  href: string;
+  urgent?: boolean;
 }
 
-export default function DashboardPage() {
-  const { user, school, features, hasFeature } = useAuth();
-  const [students, setStudents] = useState<number | null>(null);
-  const [teachers, setTeachers] = useState<number | null>(null);
-  const [classes, setClasses] = useState<number | null>(null);
-  const [outstanding, setOutstanding] = useState<string | null>(null);
-  const [announcements, setAnnouncements] = useState<Array<{ id: string; title: string; body: string; publishedAt: string | null; audience: string }>>([]);
-  const [statsLoading, setStatsLoading] = useState(true);
+export default function SchoolHomePage() {
+  const { user, school, schoolContext, hasFeature, hasRole } = useAuth();
+  const [term, setTerm] = useState<Term | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [roll, setRoll] = useState<{ students: number | null; teachers: number | null; classes: number | null }>({
+    students: null,
+    teachers: null,
+    classes: null,
+  });
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const canSeeFees = hasRole('SCHOOL_ADMIN', 'PROPRIETOR', 'BURSAR', 'SECRETARY');
+  const canTakeRegister = hasRole('SCHOOL_ADMIN', 'HEAD_TEACHER', 'TEACHER');
+  const canSetUpAcademics = hasRole('SCHOOL_ADMIN', 'HEAD_TEACHER');
+
+  const build = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const found: Task[] = [];
+
+    // Term is the spine of every school workflow — resolve it first.
+    let activeTerm: Term | null = null;
+    if (hasFeature('ACADEMICS')) {
+      const terms = await api<Term[]>('/api/academics/terms').catch(() => [] as Term[]);
+      activeTerm = terms.find((t) => t.isActive) ?? null;
+      setTerm(activeTerm);
+      if (!activeTerm && canSetUpAcademics) {
+        found.push({
+          id: 'no-term',
+          icon: 'academics',
+          text: 'No term is currently running. Fees, exams and reports are all recorded against a term.',
+          actionLabel: 'Set up the term',
+          href: '/dashboard/academics',
+          urgent: true,
+        });
+      }
+    }
+
+    let classes: ClassItem[] = [];
+    if (hasFeature('ACADEMICS')) {
+      classes = await api<ClassItem[]>('/api/academics/classes').catch(() => [] as ClassItem[]);
+      setRoll((r) => ({ ...r, classes: classes.length }));
+      if (classes.length === 0 && canSetUpAcademics) {
+        found.push({
+          id: 'no-classes',
+          icon: 'academics',
+          text: 'No classes have been created yet. Students are admitted into a class.',
+          actionLabel: 'Add classes',
+          href: '/dashboard/academics',
+          urgent: true,
+        });
+      }
+    }
+
+    if (hasFeature('STUDENTS')) {
+      const students = await api<{ total: number }>('/api/students', { query: { pageSize: 1, status: 'ACTIVE' } }).catch(() => null);
+      setRoll((r) => ({ ...r, students: students?.total ?? null }));
+      if (students && students.total === 0 && classes.length > 0 && hasRole('SCHOOL_ADMIN', 'SECRETARY')) {
+        found.push({
+          id: 'no-students',
+          icon: 'students',
+          text: 'No students are on the roll yet.',
+          actionLabel: 'Register a student',
+          href: '/dashboard/students',
+        });
+      }
+    }
+
+    if (hasFeature('TEACHERS')) {
+      const teachers = await api<{ total: number }>('/api/teachers', { query: { pageSize: 1, status: 'ACTIVE' } }).catch(() => null);
+      setRoll((r) => ({ ...r, teachers: teachers?.total ?? null }));
+    }
+
+    // Today's registers — the daily rhythm of the school.
+    if (hasFeature('ATTENDANCE') && canTakeRegister && classes.length > 0) {
+      const att = await api<PendingAttendance>('/api/attendance/pending').catch(() => null);
+      if (att && att.pending.length > 0) {
+        found.push({
+          id: 'attendance',
+          icon: 'attendance',
+          text:
+            att.pending.length === att.totalClasses
+              ? `Today's register has not been taken for any class.`
+              : `Today's register is outstanding for ${att.pending.length} ${att.pending.length === 1 ? 'class' : 'classes'}: ${att.pending.map((c) => c.name).join(', ')}.`,
+          actionLabel: 'Take the register',
+          href: '/dashboard/attendance',
+          urgent: true,
+        });
+      }
+    }
+
+    // Fees — only meaningful once a term exists.
+    if (hasFeature('FEES') && canSeeFees && activeTerm) {
+      const fees = await api<unknown[]>('/api/finance/fee-structures', { query: { termId: activeTerm.id } }).catch(() => [] as unknown[]);
+      if (fees.length === 0 && classes.length > 0) {
+        found.push({
+          id: 'no-fees',
+          icon: 'finance',
+          text: `School fees have not been set for ${termLabel(activeTerm.name)} ${activeTerm.year}. Balances cannot be tracked until they are.`,
+          actionLabel: 'Set school fees',
+          href: '/dashboard/finance',
+          urgent: true,
+        });
+      } else if (fees.length > 0) {
+        const bal = await api<Balances>('/api/finance/balances', { query: { termId: activeTerm.id } }).catch(() => null);
+        if (bal) {
+          const owing = bal.balances.filter((b) => b.balance > 0).length;
+          if (owing > 0) {
+            found.push({
+              id: 'balances',
+              icon: 'finance',
+              text: `${owing} ${owing === 1 ? 'student has' : 'students have'} unpaid fees for ${termLabel(activeTerm.name)}, totalling ${money(bal.totals.outstanding)}.`,
+              actionLabel: 'Review balances',
+              href: '/dashboard/finance',
+            });
+          }
+        }
+      }
+    }
+
+    setTasks(found);
+
+    if (hasFeature('ANNOUNCEMENTS')) {
+      const posts = await api<Announcement[]>('/api/announcements').catch(() => [] as Announcement[]);
+      setAnnouncements(posts.filter((a) => a.publishedAt).slice(0, 4));
+    }
+
+    setLoading(false);
+  }, [user, hasFeature, hasRole, canSeeFees, canTakeRegister, canSetUpAcademics]);
 
   useEffect(() => {
-    if (!user) return;
-    const jobs: Promise<unknown>[] = [];
-    if (hasFeature('STUDENTS')) {
-      jobs.push(
-        api<Paged<unknown>>('/api/students', { query: { pageSize: 1, status: 'ACTIVE' } })
-          .then((d) => setStudents(d.total))
-          .catch(() => setStudents(null))
-      );
-    }
-    if (hasFeature('TEACHERS')) {
-      jobs.push(
-        api<Paged<unknown>>('/api/teachers', { query: { pageSize: 1, status: 'ACTIVE' } })
-          .then((d) => setTeachers(d.total))
-          .catch(() => setTeachers(null))
-      );
-    }
-    if (hasFeature('ACADEMICS')) {
-      jobs.push(
-        api<unknown[]>('/api/academics/classes')
-          .then((d) => setClasses(d.length))
-          .catch(() => setClasses(null))
-      );
-    }
-    if (hasFeature('FEES') && ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PROPRIETOR', 'BURSAR', 'SECRETARY'].includes(user.role)) {
-      jobs.push(
-        api<{ totals: { outstanding: number } }>('/api/finance/balances')
-          .then((d) => setOutstanding(`UGX ${d.totals.outstanding.toLocaleString()}`))
-          .catch(() => setOutstanding(null))
-      );
-    }
-    if (hasFeature('ANNOUNCEMENTS')) {
-      api<Array<{ id: string; title: string; body: string; publishedAt: string | null; audience: string }>>('/api/announcements')
-        .then(setAnnouncements)
-        .catch(() => setAnnouncements([]));
-    }
-    Promise.allSettled(jobs).then(() => setStatsLoading(false));
-  }, [user, hasFeature]);
+    void build();
+  }, [build]);
+
+  const branding = schoolContext ?? school;
 
   return (
     <>
       <div className="topbar">
-        <h1>Dashboard</h1>
-        <span className="muted">{school?.name}</span>
-      </div>
-      <div className="content">
-        {statsLoading ? (
-          <StatSkeleton count={4} />
+        <h1>{branding?.name ?? 'School'}</h1>
+        {term ? (
+          <span className="muted">
+            {termLabel(term.name)} {term.year} · ends {dateStr(term.endDate)}
+          </span>
         ) : (
-          <div className="grid grid-4">
-            {hasFeature('STUDENTS') && <Stat label="Active Students" value={students ?? '—'} />}
-            {hasFeature('TEACHERS') && <Stat label="Active Teachers" value={teachers ?? '—'} />}
-            {hasFeature('ACADEMICS') && <Stat label="Classes" value={classes ?? '—'} />}
-            {outstanding !== null && <Stat label="Outstanding Fees" value={outstanding} />}
-          </div>
+          !loading && <span className="muted">No term running</span>
         )}
+      </div>
 
-        {hasFeature('ANNOUNCEMENTS') && (
-          <div className="card">
-            <h2>Latest announcements</h2>
-            {announcements.length === 0 ? (
-              <div className="empty">No announcements yet.</div>
-            ) : (
+      <div className="content">
+        <section>
+          <h2 className="section-heading">Needs attention</h2>
+          {loading ? (
+            <div className="card task-list">
+              {[0, 1].map((i) => (
+                <div className="task" key={i}>
+                  <Skeleton />
+                </div>
+              ))}
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="card">
+              <p className="muted">Nothing needs attention right now.</p>
+            </div>
+          ) : (
+            <div className="card task-list">
+              {tasks.map((t) => (
+                <div className={`task${t.urgent ? ' task-urgent' : ''}`} key={t.id}>
+                  <span className="task-icon">
+                    <Icon name={t.icon} size={17} />
+                  </span>
+                  <p className="task-text">{t.text}</p>
+                  <Link href={t.href} className="btn secondary small">
+                    {t.actionLabel}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <h2 className="section-heading">On the roll</h2>
+          <div className="card roll">
+            {hasFeature('STUDENTS') && (
+              <div className="roll-item">
+                <span className="roll-value">{loading ? <Skeleton className="skeleton-inline" /> : (roll.students ?? '—')}</span>
+                <span className="roll-label">Students</span>
+              </div>
+            )}
+            {hasFeature('TEACHERS') && (
+              <div className="roll-item">
+                <span className="roll-value">{loading ? <Skeleton className="skeleton-inline" /> : (roll.teachers ?? '—')}</span>
+                <span className="roll-label">Teachers</span>
+              </div>
+            )}
+            {hasFeature('ACADEMICS') && (
+              <div className="roll-item">
+                <span className="roll-value">{loading ? <Skeleton className="skeleton-inline" /> : (roll.classes ?? '—')}</span>
+                <span className="roll-label">Classes</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {hasFeature('ANNOUNCEMENTS') && announcements.length > 0 && (
+          <section>
+            <h2 className="section-heading">Recent announcements</h2>
+            <div className="card">
               <table className="table">
                 <tbody>
-                  {announcements.slice(0, 6).map((a) => (
+                  {announcements.map((a) => (
                     <tr key={a.id}>
-                      <td style={{ fontWeight: 600, width: '30%' }}>{a.title}</td>
-                      <td className="muted">{a.body.length > 120 ? `${a.body.slice(0, 120)}…` : a.body}</td>
-                      <td style={{ width: 120 }}>
-                        <Badge tone={statusTone('OPEN')}>{a.audience}</Badge>
-                      </td>
-                      <td className="muted" style={{ width: 110 }}>
-                        {dateStr(a.publishedAt)}
-                      </td>
+                      <td className="announcement-title">{a.title}</td>
+                      <td className="muted">{a.body.length > 110 ? `${a.body.slice(0, 110)}…` : a.body}</td>
+                      <td className="muted announcement-date">{dateStr(a.publishedAt)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-          </div>
-        )}
-
-        {features && (
-          <div className="card">
-            <h2>Your plan features</h2>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {Object.entries(features).map(([key, enabled]) => (
-                <Badge key={key} tone={enabled ? 'green' : 'gray'}>
-                  <span className="badge-icon">
-                    <Icon name={enabled ? 'check' : 'lock'} size={12} strokeWidth={2.5} />
-                    {key.replace(/_/g, ' ')}
-                  </span>
-                </Badge>
-              ))}
             </div>
-            <p className="muted" style={{ marginTop: 10 }}>
-              Locked modules aren&apos;t included in your school&apos;s current plan. Contact support to enable them.
-            </p>
-          </div>
+          </section>
         )}
       </div>
     </>

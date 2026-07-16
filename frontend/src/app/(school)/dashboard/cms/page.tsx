@@ -30,7 +30,7 @@ export default function CmsPage() {
   return (
     <>
       <div className="topbar">
-        <h1>Website (CMS)</h1>
+        <h1>School Website</h1>
         {canWrite && (
           <button className="btn icon-btn" onClick={() => setModal(tab)}>
             <Icon name="add" size={16} />

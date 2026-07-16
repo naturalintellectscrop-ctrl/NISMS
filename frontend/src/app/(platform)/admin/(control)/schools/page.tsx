@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Badge, EmptyState, Field, Modal, TableSkeleton, dateStr, openableRow, statusTone, useSubmit } from '@/components/ui';
 import { Icon } from '@/components/icons';
 
 interface SchoolRow {
@@ -60,7 +60,7 @@ export default function AdminSchoolsPage() {
               </thead>
               <tbody>
                 {rows.map((s) => (
-                  <tr key={s.id} className="clickable" onClick={() => router.push(`/admin/schools/${s.id}`)}>
+                  <tr key={s.id} {...openableRow(() => router.push(`/admin/schools/${s.id}`), `Open ${s.name}`)}>
                     <td>
                       <div style={{ fontWeight: 600 }}>{s.name}</div>
                       <div className="muted">{s.shortName} · {s.email}</div>

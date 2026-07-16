@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, Stat, dateStr, money, statusTone, useSubmit } from '@/components/ui';
+import { Badge, Field, Modal, Stat, StatSkeleton, TableSkeleton, dateStr, money, statusTone, useSubmit } from '@/components/ui';
 import { Icon } from '@/components/icons';
 
 interface StudentProfile {
@@ -49,7 +49,17 @@ export default function StudentProfilePage() {
   }, [load]);
 
   if (error) return <div className="content"><p className="error-text">{error}</p></div>;
-  if (!student) return <div className="empty">Loading…</div>;
+  if (!student) {
+    return (
+      <>
+        <div className="topbar"><h1>Student</h1></div>
+        <div className="page-loading">
+          <StatSkeleton count={4} />
+          <div className="card"><TableSkeleton rows={5} cols={2} /></div>
+        </div>
+      </>
+    );
+  }
 
   const name = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' ');
   const canWrite = hasRole('SCHOOL_ADMIN', 'SECRETARY');

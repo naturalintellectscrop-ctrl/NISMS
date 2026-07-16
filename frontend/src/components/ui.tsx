@@ -123,8 +123,11 @@ export function useSubmit(action: () => Promise<void>) {
       if (err instanceof ApiError && Array.isArray(err.details) && err.details.length > 0) {
         const first = err.details[0] as { path?: string; message?: string };
         setError(first.message ? `${first.path ? `${first.path}: ` : ''}${first.message}` : err.message);
+      } else if (err instanceof ApiError) {
+        setError(err.message);
       } else {
-        setError(err instanceof Error ? err.message : 'Something went wrong');
+        // Never leak an exception message into the interface.
+        setError('That could not be saved. Please try again.');
       }
     } finally {
       setBusy(false);
@@ -163,6 +166,37 @@ export function EmptyState({
       )}
     </div>
   );
+}
+
+/** Single skeleton bar. Compose for bespoke loading layouts. */
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <span className={`skeleton ${className}`.trim()} aria-hidden="true" />;
+}
+
+/**
+ * Makes a table row behave like a link for keyboard and screen-reader users:
+ * focusable, activated by Enter or Space, announced as a button.
+ */
+export function openableRow(onOpen: () => void, label: string) {
+  return {
+    className: 'clickable',
+    role: 'button' as const,
+    tabIndex: 0,
+    'aria-label': label,
+    onClick: onOpen,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onOpen();
+      }
+    },
+  };
+}
+
+/** Formats a stored term key (TERM_II) the way schools write it (Term II). */
+export function termLabel(name: string): string {
+  const roman = name.replace(/^TERM_/, '');
+  return `Term ${roman}`;
 }
 
 /** Skeleton placeholder rows for tables while data loads (no blank pages). */

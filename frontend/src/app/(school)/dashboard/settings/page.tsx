@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Badge, Field, Modal, dateStr, statusTone, useSubmit } from '@/components/ui';
+import { Badge, Field, Modal, TableSkeleton, dateStr, useSubmit } from '@/components/ui';
 import { Icon } from '@/components/icons';
 
 interface SchoolProfile {
@@ -14,7 +14,6 @@ interface SchoolProfile {
   phone: string;
   address?: string | null;
   logoUrl?: string | null;
-  subscription?: { planType: string; status: string; renewalDate: string } | null;
   settings?: {
     motto?: string | null;
     currency: string;
@@ -73,18 +72,23 @@ export default function SettingsPage() {
   const setSettings = (patch: Partial<NonNullable<SchoolProfile['settings']>>) =>
     setSchool((s) => (s ? { ...s, settings: { currency: 'UGX', ...s.settings, ...patch } } : s));
 
-  if (!school) return <div className="empty">Loading…</div>;
+  if (!school) {
+    return (
+      <>
+        <div className="topbar">
+          <h1>Settings</h1>
+        </div>
+        <div className="page-loading">
+          <div className="card"><TableSkeleton rows={4} cols={3} /></div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <div className="topbar">
         <h1>Settings</h1>
-        {school.subscription && (
-          <span>
-            <Badge tone="blue">{school.subscription.planType} PLAN</Badge>{' '}
-            <span className="muted">renews {dateStr(school.subscription.renewalDate)}</span>
-          </span>
-        )}
       </div>
       <div className="content">
         <div className="card">
